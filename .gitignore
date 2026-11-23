@@ -3,6 +3,8 @@
 /build/
 /reports/
 /svn-upload-report/
+/github-release/
+/release-input/
 __pycache__/
 /.phpunit.cache/
 /.phpunit.result.cache

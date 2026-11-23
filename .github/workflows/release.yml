@@ -1,5 +1,5 @@
-name: Release to WordPress.org
-run-name: "WordPress.org ${{ inputs.version || github.ref_name }} — ${{ github.event_name == 'workflow_dispatch' && 'SVN preview (no commit)' || 'upload' }}"
+name: Release plugin
+run-name: "Release ${{ inputs.version || github.ref_name }} — ${{ github.event_name == 'workflow_dispatch' && 'preview only' || 'version tag' }}"
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Version to prepare without committing to SVN
+        description: Version to preview without publishing to GitHub or SVN
         required: true
         type: string
         default: '2.0.0'
@@ -19,10 +19,97 @@ jobs:
   checks:
     uses: ./.github/workflows/ci.yml
 
-  deploy:
-    name: WordPress.org SVN preparation or upload
+  prepare_release:
+    name: Prepare GitHub release notes and tested ZIP
     needs: checks
     if: github.repository == 'rubenwoudsma/bulk-password-reset'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      RELEASE_VERSION: ${{ inputs.version || github.ref_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
+        with:
+          php-version: '8.4'
+          coverage: none
+      - name: Verify version and reviewed source
+        run: |
+          php scripts/check-release.php "--tag=$RELEASE_VERSION"
+          if [ "$GITHUB_EVENT_NAME" = push ]; then
+            git merge-base --is-ancestor "$GITHUB_SHA" origin/master
+          else
+            git diff --exit-code origin/master HEAD -- \
+              bulk_password_reset.php uninstall.php includes assets languages \
+              readme.txt LICENSE scripts/package.php scripts/check-release.php .wordpress-org
+          fi
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: plugin-package
+          path: release-input
+      - name: Prepare release from the CI package and version changelog
+        run: python3 .github/scripts/github-release.py prepare --version "$RELEASE_VERSION"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: github-release-candidate
+          path: github-release/
+          if-no-files-found: error
+          retention-days: 14
+          overwrite: true
+
+  github_release:
+    name: Publish GitHub Release
+    needs: prepare_release
+    if: github.repository == 'rubenwoudsma/bulk-password-reset' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    concurrency:
+      group: github-release-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: github-release-candidate
+          path: github-release
+      - name: Publish notes, installable ZIP and checksum after all checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/github-release.py publish
+
+  svn_gate:
+    name: Check SVN upload setting
+    needs: checks
+    if: github.repository == 'rubenwoudsma/bulk-password-reset'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment: wordpress-org
+    outputs:
+      enabled: ${{ steps.gate.outputs.enabled }}
+    steps:
+      - id: gate
+        env:
+          DEPLOY_ENABLED: ${{ vars.WPORG_DEPLOY_ENABLED }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] || [ "$DEPLOY_ENABLED" = true ]; then
+            echo 'enabled=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'enabled=false' >> "$GITHUB_OUTPUT"
+            echo '### SVN upload skipped' >> "$GITHUB_STEP_SUMMARY"
+            echo 'WPORG_DEPLOY_ENABLED is not true. GitHub Release publishing is handled independently.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  deploy:
+    name: WordPress.org SVN preparation or upload
+    needs: [checks, prepare_release, svn_gate]
+    if: github.repository == 'rubenwoudsma/bulk-password-reset' && needs.svn_gate.outputs.enabled == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment: wordpress-org
