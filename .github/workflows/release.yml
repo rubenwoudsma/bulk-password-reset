@@ -1,0 +1,68 @@
+name: Release to WordPress.org
+
+on:
+  push:
+    tags: ['[0-9]*.[0-9]*.[0-9]*']
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: checks
+    if: github.repository == 'rubenwoudsma/bulk-password-reset'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: wordpress-org
+    concurrency:
+      group: wordpress-org-bulk-password-reset
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
+        with:
+          php-version: '8.4'
+          extensions: zip
+          coverage: none
+      - name: Verify release identity and approved branch
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          php scripts/check-release.php "--tag=$RELEASE_TAG"
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/master
+      - name: Require directory reopening and configured credentials
+        env:
+          DEPLOY_ENABLED: ${{ vars.WPORG_DEPLOY_ENABLED }}
+          SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
+        run: |
+          test "$DEPLOY_ENABLED" = true || { echo 'Set WPORG_DEPLOY_ENABLED=true only after WordPress.org permits publication.'; exit 1; }
+          test -n "$SVN_USERNAME" && test -n "$SVN_PASSWORD"
+      - run: php scripts/package.php
+      - name: Build the exact runtime tree for SVN
+        run: |
+          unzip dist/*.zip -d build
+      - name: Reject existing SVN release tags
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          svn list --non-interactive https://plugins.svn.wordpress.org/bulk-password-reset/tags/ > "$RUNNER_TEMP/svn-tags.txt"
+          if grep -Fxq "$RELEASE_TAG/" "$RUNNER_TEMP/svn-tags.txt"; then
+            echo 'This WordPress.org release tag already exists. Use a new version.'
+            exit 1
+          fi
+      - name: Publish the validated runtime tree
+        uses: 10up/action-wordpress-plugin-deploy@54bd289b8525fd23a5c365ec369185f2966529c2 # stable
+        env:
+          SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
+          SLUG: bulk-password-reset
+          VERSION: ${{ github.ref_name }}
+          BUILD_DIR: build/bulk-password-reset
+          ASSETS_DIR: .wordpress-org

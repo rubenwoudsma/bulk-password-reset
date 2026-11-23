@@ -1,108 +1,109 @@
 === Bulk Password Reset ===
-Contributors: Ruben Woudsma
-Tags: users, reset, password, admin, bulk mode, password reset
-Requires at least: 2.8
-Tested up to: 3.7.
-Stable tag: trunk
+Contributors: rubenwoudsma
+Tags: password reset, users, security, bulk
+Requires at least: 6.8
+Tested up to: 7.1
+Requires PHP: 8.2
+Stable tag: 2.0.0
+License: GPLv2 or later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Bulk Password Reset is a tool which can help you do a bulk password reset on all the users or just specific users within a category. It has been build to help administrators to automatically reset password of users in their WordPress installation.
+Preview and reset passwords in bulk by role or selected users, with secure reset links and optional immediate invalidation. Entirely free.
 
 == Description ==
 
-Bulk password reset is an easy plugin that can help you reset all the password of the users or the users in a specific category. Optionally you can add a e-mail note and set the default password.
+Bulk Password Reset helps site administrators ask groups of users to choose new passwords. Select roles under Users > Bulk Password Reset, or select individual users on the Users screen and choose Preview password reset.
 
-It is free to use in both commercial and personal projects, just like WordPress is.
+Review a preview before anything is sent or changed. Every feature is free, with no premium edition, account registration, telemetry, or third-party service requirement.
 
-= Options included =
+= Two reset modes =
 
-* Simple installation
-* Selection for user groups
-* Adjustment of the outgoing message
+* Send reset links: each user receives a WordPress single-use password-reset link. Existing passwords and browser sessions continue working until the user changes their password.
+* Invalidate immediately: replace each eligible user's password with a unique, unknown random value, end their browser sessions, and email a link to choose a new password. Passwords are never emailed.
 
-= Important Links =
+Immediate invalidation cannot be undone. If email fails, the password still changes. Test outgoing mail before using this mode. Application passwords and external identity-provider sessions are not revoked.
 
-Below some important links with can help you for addition research to find answers regarding the plugin:
-* [Website of the Author Ruben Woudsma](http://rubenwoudsma.nl/)
-* [Artist designed icon in header](http://www.aha-soft.com/)
+= Designed for careful administration =
 
-= Features =
+* Role selection, including custom roles, or individually selected users.
+* A preview and explicit confirmation before a reset starts.
+* Batches of up to 20 candidates per request, with no total user limit or paid tier. Click Continue to run each next batch; no background worker or cron is required.
+* Resume a job for 48 hours. One active job per site; only its originating administrator can run or cancel it.
+* Optional plain-text email note and user-locale support.
+* A light, responsive admin layout with clear steps, reset-mode cards, and progress reports.
+* WordPress reset-key generation, hashing, expiration and single-use validation.
+* Per-request operator permissions and per-account edit checks.
+* Separate counts for emails accepted for sending, failures, protected accounts, interrupted outcomes and password invalidations.
 
-* Users              : Bulk reset the password of users.
-* E-mail             : An e-mail can be sent to all the users to reset the password.
-* Additional message : Add an additional message to the e-mail message.
-* Several options    : Options to sent e-mail or change password nag
+Your own account, administrators, super administrators, and accounts that can manage settings or edit users are always excluded, even if they also hold a selected role. Use WordPress's individual recovery flow for these accounts.
 
-== Credits ==
+Role-based selections are evaluated again during processing. Accounts registered after the preview are excluded; existing accounts whose roles change may enter or leave the selection. The preview count is a candidate count, not a promise of successful resets.
 
-Copyright 2009-2013 by Ruben Woudsma. The plugin is based on the template 
-plugin template and furthermore several functions have been copied 
-from yoast.com his Google Analytics plugin. I would like to thank 
-both [Joost van de Valk](yoast.com) and Pressography.com for a look 
-into their code.
+= Multisite =
 
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
-(at your option) any later version.
+Only super administrators can use this tool on multisite. Selection is limited to members of the current site. Passwords and browser sessions are shared across the network, so invalidation affects those accounts on every site. This is not a network-wide selection screen.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+= Privacy =
 
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+WordPress sends mail to the account's existing email address through your site's mail configuration. The plugin stores one site's latest job, its administrator ID, selected roles or user IDs, optional note, progress and aggregate counts in a non-autoloaded database option. It does not store plaintext passwords, reset links, or reset keys in job data or public log files. WordPress stores the hashed reset key in its own user record.
+
+Jobs expire after 48 hours and cannot then be resumed. The report also retains up to 100 failed and 100 interrupted account IDs for review. Expiration does not automatically erase the latest report; it is replaced by the next preview or deleted on uninstall. Existing log files from older plugin versions are not automatically removed; administrators should inspect and remove them. No data is sent to the plugin author.
 
 == Installation ==
 
-1. 	Upload the files to wp-content/plugins/bulk_password_reset
-2. 	Activate the plugin
-3.	Navigate to Users --> Bulk password reset
-4. 	Select the users or categories and reset the password.
+1. Back up your site and verify outgoing email on a staging site.
+2. Install the plugin ZIP using Plugins > Add New Plugin > Upload Plugin, or replace the existing bulk-password-reset directory.
+3. Activate the plugin and open Users > Bulk Password Reset.
+4. Select roles and a reset mode, add an optional note, and review the preview.
+5. Confirm and start. Use Continue for each remaining batch, or cancel remaining work.
 
-That's it ... Have fun
+Requires WordPress 6.8 or newer and PHP 8.2 or newer.
 
-== Screen shots ==
+== Screenshots ==
 
-1. Screen shot Admin Area 
+1. Select recipient roles, choose the reset mode, and add an optional email note.
+2. Review candidate accounts and explicitly confirm before starting a reset.
 
 == Frequently Asked Questions ==
 
-* None yet. More to come.
+= Is there a user limit or paid version? =
 
-== Change log == 
+No. All features are free. The 20-candidate batch size bounds each request; it does not limit the total number of users in a job.
 
-= V1.1 - 24-10-2013 =
-* FIX: Some grammatical errors have been removed from the system
-* FIX: Styling of the postboxes on the right hand side of the admin interface
-* NEW: Experimental implementation of logging functionality of the processing
-* NEW: Added header image for the WordPress plugin repository
+= Does sending a link force a password change? =
 
-= V1.0 - 14-09-2011 =
-* FIX : Fixed an issue about wrong data type (credits: tosho and proximity2008)
-* FIX : Advanced setting with jQuery no longer working (credits: eastwoodarts)
-* FIX : Minor update to the Dutch language pack
+No. Link mode leaves existing passwords working. Use immediate invalidation when the old password must stop working at once.
 
-= V0.9 - 07.12.2009 =
-* FIX : Dutch language support
-* FIX : Add extra message to outgoing mail
-* NEW : Add own authentication mail
-* NEW : Add own password
-* NEW : Extra option added for changing password nag
-* FIX : Update translation .pot file
+= Can I choose one shared password for everybody? =
 
-= V0.7 - 02.12.2009 =
-* CHANGE : Rewrote function into php class
-* CHANGE : Renamed plugin from 'bulk_reset_password' to 'bulk_password_reset'
-* NEW : Added css for success message
-* NEW : Language support included
-* FIX : Some small code changes
+No. Shared passwords, configurable reset keys and plaintext password emails from older versions have been removed.
 
-= V0.5 - 28.11.2009 =
-* NEW : Admin page
-* NEW : Role group selection
-* NEW : Advanced settings
-* NEW : Reset password
-* NEW : Send activation mail
-* NEW : Add additional message
+= What does a successful email count mean? =
+
+It means WordPress accepted the email for sending, not that it arrived. Check your mail provider for delivery problems. A subsequent WordPress password-reset request can supersede an earlier link.
+
+= What if a request stops halfway through? =
+
+Progress is saved before each account is processed. An account with an uncertain outcome is not automatically retried. Review that account separately. Closing the page stops further batches; you can return within 48 hours.
+
+= What changes when upgrading from 1.x? =
+
+The old settings, including stored shared passwords and custom keys, are deleted when an authorized administrator next opens WordPress administration or activates the plugin. New jobs start in link mode. The legacy plugin entry-point filename is retained so existing installations remain activated. Old translation files and the old reset handlers are replaced.
+
+== Changelog ==
+
+= 2.0.0 =
+* Rebuild the plugin's reset flow with authorization, per-user permissions, nonces, confirmation, and protected accounts.
+* Replace the vulnerable legacy bulk-action path associated with CVE-2026-14873.
+* Use secure WordPress reset links; remove shared passwords, custom reset keys, and plaintext password emails.
+* Add resumable batches, previews, explicit immediate invalidation, session revocation, and honest failure reporting.
+* Add automated security regression tests, WordPress coding standards, release checks, and GitHub Actions workflows.
+* Introduce a responsive admin interface with locally bundled Ruben Woudsma branding and an author website link.
+
+= 1.3.3 =
+* Last historical WordPress.org release. Do not use for new installations.
+
+== Upgrade Notice ==
+
+= 2.0.0 =
+Security rebuild replacing the vulnerable legacy reset path. Requires PHP 8.2 and WordPress 6.8. Old settings are removed; review both reset modes before use.

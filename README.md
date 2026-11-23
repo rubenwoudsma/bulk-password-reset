@@ -1,0 +1,48 @@
+# Bulk Password Reset
+
+A free WordPress plugin for bulk password resets by role or selected users. No premium edition, user cap, runtime Composer dependency, telemetry, or external account is required.
+
+Version 2.0.0 is a substantial security rebuild of the historical plugin. It is prepared for maintainer review and staging; its presence here does not mean WordPress.org has reopened the listing or a vulnerability provider has accepted a patched-version claim.
+
+## What administrators can do
+
+Open **Users → Bulk Password Reset**, select roles, choose a reset mode, and preview the candidates. Alternatively, select accounts on the Users screen and choose **Preview password reset**.
+
+The responsive admin screen uses a three-step workflow, clear reset-mode cards, and a separate progress report. Ruben Woudsma's logo and author link appear only on this plugin's screen. The logo and styles are bundled locally; displaying the page makes no request to the author's website and adds no credits to public-facing pages or user emails.
+
+Confirm the preview to begin. Each request handles up to 20 candidates. Use **Continue next batch** until the job finishes; there is no total user limit. Progress is saved, and the originating administrator can resume for 48 hours or cancel remaining work. No background worker or cron is required.
+
+| Mode | Existing password | Browser sessions | Email |
+| --- | --- | --- | --- |
+| Send reset links (default) | Remains valid until the user resets it | Left intact by this plugin | WordPress single-use reset link |
+| Invalidate immediately | Replaced with a unique unknown random password | Explicitly revoked | Link to choose a new password |
+
+Immediate invalidation cannot be reversed, including if email fails. Application passwords and external sign-in providers are unaffected. Core or another plugin may apply additional policies when the recipient completes a reset.
+
+The operator needs both `manage_options` and `edit_users`. Every target also requires `edit_user`. Own accounts, administrators, super administrators, and accounts with `manage_options` or `edit_users` are always protected, including accounts with multiple roles.
+
+On multisite, only super administrators may operate the plugin. Selection is site-scoped; password and browser-session changes affect the shared account throughout the network. There is no network-wide recipient selector.
+
+## Requirements and installation
+
+WordPress 6.8+, PHP 8.2+, and working WordPress email. Upload the installable ZIP through Plugins, or replace `wp-content/plugins/bulk-password-reset`. The existing `bulk_password_reset.php` filename is retained to preserve the plugin's activation identity.
+
+Before enabling immediate invalidation, test mail and both modes on a staging copy. The old `bpr_options` settings, including shared passwords and custom reset keys, are discarded on the next authorized admin initialization or activation. Legacy files in uploads or logs are not automatically deleted.
+
+## Maintenance automation
+
+| Workflow | Trigger | Purpose |
+| --- | --- | --- |
+| Quality and security | Pull requests, master pushes, weekly, manual, release prerequisite | PHP lint, WordPress coding standards, PHP compatibility, dependency audit, metadata consistency, package build, real WordPress integration tests, official Plugin Check |
+| Dependency updates | Weekly through Dependabot | Composer and pinned GitHub Actions updates |
+| Plugin readme preview | Public pull requests | Joost de Valk's listing preview and preflight comment; no PR checkout or code execution |
+| Release to WordPress.org | Numeric Git tag, for example `2.0.0` | Reruns CI, checks version and master ancestry, refuses existing SVN tags, publishes a runtime-only tree |
+| Sync published readme | Manual, master only; dry run by default | Updates only the readme in trunk and the existing stable tag; refuses missing or mismatched stable releases |
+
+All referenced actions are pinned to commit SHAs, with Dependabot tracking updates. General CI has read-only repository permissions and no deployment secrets. The readme-preview workflow has narrowly scoped comment permission and intentionally never checks out pull-request code. No Node build is needed for this PHP-only plugin.
+
+See [release setup](docs/RELEASING.md), [development and tests](CONTRIBUTING.md), and the [security review](docs/SECURITY-REVIEW.md).
+
+## License
+
+GPL-2.0-or-later. Original plugin by Ruben Woudsma; historical inspiration included Joost de Valk and Pressography. The inherited WordPress.org banner is retained from the original repository. The plugin icon source is in `docs/icon-source.svg`; author-logo attribution is in `assets/README.md`. See `LICENSE` and the historical attribution in Git history.
