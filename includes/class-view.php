@@ -118,12 +118,7 @@ final class View {
 		?>
 		<ol class="bpr-steps" aria-label="<?php esc_attr_e( 'Reset workflow steps', 'bulk-password-reset' ); ?>">
 			<?php foreach ( $labels as $number => $label ) : ?>
-				<li class="<?php echo $number === $current ? 'is-current' : ( $number < $current ? 'is-done' : '' ); ?>" 
-				<?php
-				if ( $number === $current ) {
-					echo 'aria-current="step"'; }
-				?>
-				>
+				<li class="<?php echo $number === $current ? 'is-current' : ( $number < $current ? 'is-done' : '' ); ?>" aria-current="<?php echo $number === $current ? 'step' : 'false'; ?>">
 					<span class="bpr-step-number" aria-hidden="true"><?php echo esc_html( (string) $number ); ?></span><span><?php echo esc_html( $label ); ?></span>
 				</li>
 			<?php endforeach; ?>
