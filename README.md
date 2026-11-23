@@ -36,10 +36,12 @@ Before enabling immediate invalidation, test mail and both modes on a staging co
 | Quality and security | Pull requests, master pushes, weekly, manual, release prerequisite | PHP lint, WordPress coding standards, PHP compatibility, dependency audit, metadata consistency, package build, real WordPress integration tests, official Plugin Check |
 | Dependency updates | Weekly through Dependabot | Composer and pinned GitHub Actions updates |
 | Plugin readme preview | Public pull requests | Joost de Valk's listing preview and preflight comment; no PR checkout or code execution |
-| Release to WordPress.org | Numeric Git tag, for example `2.0.0` | Reruns CI, checks version and master ancestry, refuses existing SVN tags, publishes a runtime-only tree |
+| Release plugin | Numeric Git tag, for example `2.0.0`; manual preview | Reruns CI and verifies reviewed source. Tags publish a GitHub Release with changelog notes, the tested plugin ZIP and checksum. SVN uploads run only when enabled; manual runs preview both destinations. |
 | Sync published readme | Manual, master only; dry run by default | Updates only the readme in trunk and the existing stable tag; refuses missing or mismatched stable releases |
 
 All referenced actions are pinned to commit SHAs, with Dependabot tracking updates. General CI has read-only repository permissions and no deployment secrets. The readme-preview workflow has narrowly scoped comment permission and intentionally never checks out pull-request code. No Node build is needed for this PHP-only plugin.
+
+The GitHub Release publishing job uses the built-in Actions token with repository-content write permission. SVN upload credentials and its enable setting are handled separately: a disabled SVN upload is skipped successfully. Only push a version tag when public GitHub publication is intended.
 
 See [release setup](docs/RELEASING.md), [development and tests](CONTRIBUTING.md), and the [security review](docs/SECURITY-REVIEW.md).
 

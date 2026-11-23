@@ -19,7 +19,7 @@ Add these **environment secrets**:
 * `SVN_USERNAME`: the WordPress.org account authorized to commit to this plugin.
 * `SVN_PASSWORD`: that account's WordPress.org SVN password. Generate it using WordPress.org's current account security process; never put it in the repository.
 
-The **environment variable** `WPORG_DEPLOY_ENABLED` controls actual SVN writes. Keep it `false` for preparation. Enable it only when the reviewed upload is authorized; this can include the Plugins team's requested review upload while the listing is closed. Leaving it unset also blocks actual uploads. Manual previews always remain dry runs, including when this variable is true. GitHub will create a missing named environment automatically if referenced, so configure its protections explicitly rather than assuming the workflow enforces them by itself.
+The **environment variable** `WPORG_DEPLOY_ENABLED` controls actual SVN writes. Keep it `false` while awaiting the original closure notice and for preparation. Enable it only when the reviewed upload is authorized; this can include the Plugins team's requested review upload while the listing is closed. Leaving it unset also disables actual uploads. A tagged run skips SVN cleanly while the gate is false; its GitHub Release can still publish. Manual previews never publish a GitHub Release or commit to SVN, including when this variable is true. GitHub will create a missing named environment automatically if referenced, so configure its protections explicitly rather than assuming the workflow enforces them by itself.
 
 Actions are enabled. On 23 November 2026, master branch protection was configured to require a pull request, all eight quality/integration/Plugin Check jobs from the GitHub Actions app, an up-to-date branch, and resolved review conversations. The rule applies to administrators and blocks force pushes and deletion. It requires zero approving reviews so the sole maintainer can merge a passing PR without a second reviewer. If CI job names change, update the required checks to match. These are live repository settings, separate from workflow files.
 
@@ -27,11 +27,21 @@ Enable Dependabot updates and private vulnerability reporting for the repository
 
 The workflow source currently uses `master`, matching the existing repository. Update branch references and this document if the default branch changes.
 
-## Prepare an SVN upload without committing
+## Automatic GitHub Releases on version tags
 
-Open **Actions → Release to WordPress.org → Run workflow**, select `master`, and enter version `2.0.0`. The manual trigger is deliberately preview-only: it cannot be switched to a real upload with an input. No Git release tag is created.
+Pushing a numeric Git tag such as `2.0.0` starts **Release plugin**. All nine quality/security jobs must pass. The tag must match the plugin metadata, and its tested commit must belong to master. A preparation job downloads the exact `plugin-package` ZIP produced by CI, verifies every runtime file against the tagged source, and prepares release notes from that version's first `readme.txt` changelog entry.
 
-The workflow reruns all nine CI jobs, verifies matching version metadata, builds the runtime ZIP, refuses an already-existing SVN release tag, and uses 10up's pinned deployment action with `dry-run: true`. It checks out the existing plugin repository and stages the exact planned replacement of `trunk`, new `tags/2.0.0`, and directory assets, without making an SVN commit. This works with `WPORG_DEPLOY_ENABLED=false` and uses the existing `wordpress-org` environment; no additional secrets are needed.
+The tag-only GitHub publishing job uses the automatically supplied `GITHUB_TOKEN` with `contents: write`; all other jobs keep read-only repository permissions. No personal access token or additional secret is needed, and the GitHub publishing job has no access to the SVN environment secrets. It checks that the remote tag still points to the tested commit, creates a draft, uploads **bulk-password-reset-VERSION.zip** and **SHA256SUMS.txt**, downloads and verifies both assets, and then publishes the release. An interrupted upload remains a draft. Reruns can resume drafts created by this workflow for the same commit. An existing published release must match the workflow's recorded commit and runtime; it is verified and left unchanged, even if a rebuilt ZIP has different archive timestamps. Unrelated drafts or mismatched published releases require manual review rather than being overwritten.
+
+GitHub Release publishing and SVN uploading are separate jobs. `WPORG_DEPLOY_ENABLED=false` skips the SVN job successfully and does not block GitHub publication. A GitHub Release is public distribution on GitHub; it does not imply WordPress.org approval, reopening, or an advisory-provider decision. Only create the release tag when GitHub publication is intended.
+
+## Preview release notes, package and SVN changes
+
+Open **Actions → Release plugin → Run workflow**, select `master`, and enter version `2.0.0`. The manual trigger is deliberately preview-only: it cannot be switched to a real upload with an input. No Git release tag or GitHub Release is created.
+
+The workflow reruns all nine CI jobs and prepares a **github-release-candidate** artifact containing the tested ZIP, release notes (`notes.md`), checksum and source/file metadata (`release.json`). The run's Summary links the preparation results. You can inspect this candidate before creating a real tag.
+
+The separate SVN preview verifies matching version metadata, builds the runtime ZIP, refuses an already-existing SVN release tag, and uses 10up's pinned deployment action with `dry-run: true`. It checks out the existing plugin repository and stages the exact planned replacement of `trunk`, new `tags/2.0.0`, and directory assets, without making an SVN commit. This works with `WPORG_DEPLOY_ENABLED=false` and uses the existing `wordpress-org` environment; no additional secrets are needed.
 
 When testing a workflow/reporting change on a preparation branch, a manual preview can also select that branch. Before staging, it must match `origin/master` exactly for every runtime file, packaging/metadata script and directory asset. This allows reviewing workflow changes while keeping the upload candidate equal to reviewed master. Live tagged uploads always require the tagged commit to belong to master. GitHub requires the workflow file to exist on its default branch for manual dispatch; see [GitHub's manual-run documentation](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow).
 
@@ -54,11 +64,13 @@ git tag -a 2.0.0 -m "Bulk Password Reset 2.0.0"
 git push origin 2.0.0
 ```
 
-The release workflow reruns all nine CI checks on that tag. After checks pass and any configured environment approvals are satisfied, it verifies metadata, checks that the commit belongs to master, requires the write gate, refuses an existing SVN release tag, and deploys the generated runtime tree using 10up's action. Runtime files are built using the same allowlist as the installable ZIP. There are no Composer dependencies in the plugin ZIP. The resulting report checks that the working copy matches the package and has no uncommitted changes. Keep the commit revision from the deployment log for the closure-thread reply.
+The release workflow reruns all nine CI checks on that tag and publishes the GitHub Release as described above. If the SVN gate is enabled and any configured environment approvals are satisfied, it also verifies metadata, checks that the commit belongs to master, refuses an existing SVN release tag, and deploys the generated runtime tree using 10up's action. Runtime files are built using the same allowlist as the installable ZIP. There are no Composer dependencies in the plugin ZIP. The resulting report checks that the working copy matches the package and has no uncommitted changes. Keep the commit revision from the deployment log for the closure-thread reply.
 
 Only one WordPress.org preparation, deployment or readme sync runs at a time. Releases are never automatically canceled midway through an SVN update. Listing assets come from `.wordpress-org`; development files and tests are excluded. Uploading while the listing is closed does not itself approve or reopen the listing. For an open plugin, an SVN release can be distributed to users; treat the actual upload as publication. Return the write gate to `false` after the intended upload if further writes should be disabled.
 
-If a tag build fails, fix the cause and rerun only when the tag still represents the intended release. Never replace an already published WordPress.org tag; make a new patch release instead. This workflow publishes to WordPress.org, not a separate GitHub Release page; the tested ZIP is also retained as a GitHub Actions artifact.
+If a GitHub Release was published while SVN was disabled, enable the gate only when the SVN upload is authorized, then rerun the existing tagged workflow. Do not move or recreate its tag. The GitHub job verifies the existing published assets without replacing them; the SVN job can perform the previously skipped upload. A manual run is always a preview and cannot perform that actual upload.
+
+If a tag build fails, fix the cause and rerun only when the tag still represents the intended release. Never replace an already published WordPress.org tag; make a new patch release instead. Published GitHub Release assets remain available beyond the 14-day retention of Actions artifacts.
 
 ## Readme-only updates
 
