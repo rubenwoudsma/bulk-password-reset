@@ -42,6 +42,14 @@ The test suite intercepts WordPress mail in memory. Its fixtures use `.test` add
 
 CI installs WordPress with MySQL 8.0. The matrix covers minimum WordPress 6.8/PHP 8.2, latest WordPress on PHP 8.2–8.5, and latest WordPress multisite on PHP 8.4. The local verification report records what actually ran locally; a workflow definition alone is not a completed GitHub run.
 
+## GitHub Actions results overview
+
+Open a **Quality and security** run in GitHub Actions and select **Summary**. The **CI results overview** job publishes one overview after the other jobs finish, including failed runs where reporting can still execute. It lists the six test environments, installed WordPress/PHP versions, passed/failed/error/skipped test executions, assertions, coding standards, PHP compatibility, dependency audit, release metadata, and official Plugin Check result. Totals count executions across the matrix, rather than unique tests.
+
+Download **ci-report** from the run's **Artifacts** section for `overview.md`, `overview.json`, the per-environment PHPUnit JUnit XML, Composer audit JSON, and available Plugin Check output. The overview links to the installable **plugin-package** artifact and records its ZIP checksum. Artifacts require GitHub sign-in and expire after 14 days. A generated package does not imply that checks passed or that WordPress.org approved or published it.
+
+Reporting uses Python 3's standard library, available on the Ubuntu CI runner, with no Python packages to install. Run its regression checks locally with `python3 -m unittest discover -s tests/reporting -v`. The collector rejects missing, duplicate, or foreign-run reports and distinguishes skipped checks and unavailable test results from passes. It also checks GitHub's job outcomes independently of the report data and fails the overview job when evidence is incomplete or checks failed. Original check failures remain failures; no `continue-on-error` is used. A cancelled run, unavailable runner, or checkout failure can prevent a report from being published; the run and job logs remain authoritative.
+
 ## Manual acceptance checks
 
 On staging, test the complete admin forms and Users bulk action, mail delivery to a controlled address, the recipient's reset link, and browser-session revocation. Include a custom role, an account with multiple roles, and a multisite network if applicable. Screen-reader labels and native WordPress controls are used; a formal accessibility audit has not been performed.

@@ -27,21 +27,61 @@ jobs:
           tools: composer:v2
           extensions: mbstring, zip
           coverage: none
-      - run: composer validate --strict
-      - run: composer install --no-interaction --prefer-dist
-      - run: composer check-platform-reqs
-      - run: composer audit --locked
-      - run: composer lint
-      - run: composer standards
-      - run: composer compatibility
-      - run: composer metadata
-      - run: composer package
+      - id: validate
+        run: composer validate --strict
+      - id: install
+        run: composer install --no-interaction --prefer-dist
+      - id: platform
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: composer check-platform-reqs
+      - id: audit
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: |
+          mkdir -p reports
+          composer audit --locked --format=json > reports/composer-audit.json
+      - id: lint
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: composer lint
+      - id: standards
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: composer standards
+      - id: compatibility
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: composer compatibility
+      - id: metadata
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: composer metadata
+      - id: reporting_tests
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: python3 -m unittest discover -s tests/reporting -v
+      - id: package
+        if: ${{ !cancelled() && steps.metadata.outcome == 'success' }}
+        run: composer package
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        id: package_upload
+        if: ${{ !cancelled() && steps.package.outcome == 'success' }}
         with:
           name: plugin-package
           path: dist/*.zip
           if-no-files-found: error
           retention-days: 14
+          overwrite: true
+      - name: Record quality and security results
+        if: ${{ always() }}
+        env:
+          CI_STEPS: ${{ toJSON(steps) }}
+          CI_JOB_STATUS: ${{ job.status }}
+          CI_PACKAGE_URL: ${{ steps.package_upload.outputs.artifact-url }}
+        run: python3 .github/scripts/ci-report.py record quality
+      - name: Upload quality report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ci-data-quality
+          path: reports/
+          if-no-files-found: error
+          retention-days: 14
+          overwrite: true
 
   integration:
     name: WordPress ${{ matrix.wordpress }} / PHP ${{ matrix.php }} / ${{ matrix.mode }}
@@ -91,8 +131,10 @@ jobs:
           echo "$RUNNER_TEMP/bpr-tools" >> "$GITHUB_PATH"
       - name: Verify WP-CLI is available
         run: wp --info
-      - run: composer install --no-interaction --prefer-dist
-      - run: composer check-platform-reqs
+      - id: install
+        run: composer install --no-interaction --prefer-dist
+      - id: platform
+        run: composer check-platform-reqs
       - name: Install disposable WordPress
         env:
           WP_VERSION: ${{ matrix.wordpress }}
@@ -108,9 +150,35 @@ jobs:
           else
             wp core install --path="$BPR_WP_ROOT" --url=http://bpr.test --title=Tests --admin_user=testadmin --admin_password=disposable-test-password --admin_email=admin@example.test --skip-email
           fi
-      - run: composer test
+      - name: Record installed test environment
+        run: |
+          mkdir -p reports
+          php -r 'echo PHP_VERSION;' > reports/php-version.txt
+          wp core version --path="$BPR_WP_ROOT" > reports/wordpress-version.txt
         env:
           BPR_WP_ROOT: ${{ runner.temp }}/wordpress
+      - id: tests
+        run: composer test -- --log-junit reports/junit.xml
+        env:
+          BPR_WP_ROOT: ${{ runner.temp }}/wordpress
+      - name: Record integration results
+        if: ${{ always() }}
+        env:
+          CI_STEPS: ${{ toJSON(steps) }}
+          CI_JOB_STATUS: ${{ job.status }}
+          CI_PHP: ${{ matrix.php }}
+          CI_WORDPRESS: ${{ matrix.wordpress }}
+          CI_MODE: ${{ matrix.mode }}
+        run: python3 .github/scripts/ci-report.py record integration
+      - name: Upload integration report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ci-data-integration-${{ matrix.wordpress }}-${{ matrix.php }}-${{ matrix.mode }}
+          path: reports/
+          if-no-files-found: error
+          retention-days: 14
+          overwrite: true
 
   plugin-check:
     name: WordPress Plugin Check
@@ -128,6 +196,51 @@ jobs:
       - run: php scripts/package.php
       - run: unzip dist/*.zip -d build
       - uses: WordPress/plugin-check-action@10857da14b6c2246d15402b3e69f777edcf8c12e # v1
+        id: plugin_check
         with:
           build-dir: build/bulk-password-reset
           slug: bulk-password-reset
+      - name: Record Plugin Check result
+        if: ${{ always() }}
+        env:
+          CI_STEPS: ${{ toJSON(steps) }}
+          CI_JOB_STATUS: ${{ job.status }}
+        run: python3 .github/scripts/ci-report.py record plugin-check
+      - name: Upload Plugin Check report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ci-data-plugin-check
+          path: reports/
+          if-no-files-found: error
+          retention-days: 14
+          overwrite: true
+
+  summary:
+    name: CI results overview
+    if: ${{ always() }}
+    needs: [quality, integration, plugin-check]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: ci-data-*
+          path: reports/collected
+      - name: Publish test and security overview
+        if: ${{ always() }}
+        env:
+          CI_NEEDS: ${{ toJSON(needs) }}
+        run: python3 .github/scripts/ci-report.py summary
+      - name: Upload combined report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ci-report
+          path: reports/
+          if-no-files-found: error
+          retention-days: 14
+          overwrite: true
