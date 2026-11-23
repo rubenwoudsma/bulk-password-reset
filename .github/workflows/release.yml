@@ -1,8 +1,16 @@
 name: Release to WordPress.org
+run-name: "WordPress.org ${{ inputs.version || github.ref_name }} — ${{ github.event_name == 'workflow_dispatch' && 'SVN preview (no commit)' || 'upload' }}"
 
 on:
   push:
     tags: ['[0-9]*.[0-9]*.[0-9]*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to prepare without committing to SVN
+        required: true
+        type: string
+        default: '2.0.0'
 
 permissions:
   contents: read
@@ -12,6 +20,7 @@ jobs:
     uses: ./.github/workflows/ci.yml
 
   deploy:
+    name: WordPress.org SVN preparation or upload
     needs: checks
     if: github.repository == 'rubenwoudsma/bulk-password-reset'
     runs-on: ubuntu-24.04
@@ -20,6 +29,9 @@ jobs:
     concurrency:
       group: wordpress-org-bulk-password-reset
       cancel-in-progress: false
+    env:
+      RELEASE_VERSION: ${{ inputs.version || github.ref_name }}
+      SVN_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -30,39 +42,75 @@ jobs:
           php-version: '8.4'
           extensions: zip
           coverage: none
-      - name: Verify release identity and approved branch
-        env:
-          RELEASE_TAG: ${{ github.ref_name }}
+      - name: Verify release identity and reviewed runtime
+        id: identity
         run: |
-          php scripts/check-release.php "--tag=$RELEASE_TAG"
-          git merge-base --is-ancestor "$GITHUB_SHA" origin/master
-      - name: Require directory reopening and configured credentials
+          php scripts/check-release.php "--tag=$RELEASE_VERSION"
+          if [ "$SVN_DRY_RUN" = true ]; then
+            # A preparation branch may change this workflow/report, but must
+            # prepare exactly master's reviewed runtime, builder and assets.
+            git diff --exit-code origin/master HEAD -- \
+              bulk_password_reset.php uninstall.php includes assets languages \
+              readme.txt LICENSE scripts/package.php scripts/check-release.php .wordpress-org
+          else
+            git merge-base --is-ancestor "$GITHUB_SHA" origin/master
+          fi
+      - name: Check saved credentials and SVN upload control
         env:
           DEPLOY_ENABLED: ${{ vars.WPORG_DEPLOY_ENABLED }}
           SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
           SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
         run: |
-          test "$DEPLOY_ENABLED" = true || { echo 'Set WPORG_DEPLOY_ENABLED=true only after WordPress.org permits publication.'; exit 1; }
           test -n "$SVN_USERNAME" && test -n "$SVN_PASSWORD"
+          if [ "$SVN_DRY_RUN" != true ] && [ "$DEPLOY_ENABLED" != true ]; then
+            echo 'SVN upload is disabled. Enable it only when the reviewed upload is authorized, including a requested upload while the plugin is closed.'
+            exit 1
+          fi
+          echo 'Both saved SVN secrets are available. A preview does not verify SVN write access.'
       - run: php scripts/package.php
       - name: Build the exact runtime tree for SVN
         run: |
           unzip dist/*.zip -d build
+      - name: Ensure SVN is installed
+        run: |
+          if ! command -v svn >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install --yes subversion
+          fi
+          svn --version --quiet
       - name: Reject existing SVN release tags
-        env:
-          RELEASE_TAG: ${{ github.ref_name }}
         run: |
           svn list --non-interactive https://plugins.svn.wordpress.org/bulk-password-reset/tags/ > "$RUNNER_TEMP/svn-tags.txt"
-          if grep -Fxq "$RELEASE_TAG/" "$RUNNER_TEMP/svn-tags.txt"; then
+          if grep -Fxq "$RELEASE_VERSION/" "$RUNNER_TEMP/svn-tags.txt"; then
             echo 'This WordPress.org release tag already exists. Use a new version.'
             exit 1
           fi
-      - name: Publish the validated runtime tree
+      - name: Stage or upload the validated runtime tree
+        id: svn
         uses: 10up/action-wordpress-plugin-deploy@54bd289b8525fd23a5c365ec369185f2966529c2 # stable
+        with:
+          dry-run: ${{ env.SVN_DRY_RUN }}
         env:
           SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
           SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
           SLUG: bulk-password-reset
-          VERSION: ${{ github.ref_name }}
+          VERSION: ${{ env.RELEASE_VERSION }}
           BUILD_DIR: build/bulk-password-reset
           ASSETS_DIR: .wordpress-org
+      - name: Publish SVN preparation or upload report
+        if: ${{ always() }}
+        env:
+          SVN_ACTION_OUTCOME: ${{ steps.svn.outcome }}
+          SVN_IDENTITY_OUTCOME: ${{ steps.identity.outcome }}
+        run: python3 .github/scripts/svn-report.py --working-copy "$HOME/svn-bulk-password-reset"
+      - name: Save SVN report and installable ZIP
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: wordpress-org-svn-report
+          path: |
+            svn-upload-report/
+            dist/*.zip
+          if-no-files-found: error
+          retention-days: 14
+          overwrite: true
