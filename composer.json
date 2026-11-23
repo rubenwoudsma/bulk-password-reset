@@ -1,0 +1,25 @@
+{
+  "name": "rubenwoudsma/bulk-password-reset",
+  "description": "Free bulk password resets using secure WordPress reset links.",
+  "type": "wordpress-plugin",
+  "license": "GPL-2.0-or-later",
+  "require": { "php": ">=8.2" },
+  "require-dev": {
+    "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
+    "phpcompatibility/phpcompatibility-wp": "^2.1",
+    "phpunit/phpunit": "^11.5",
+    "wp-coding-standards/wpcs": "^3.2"
+  },
+  "config": {
+    "allow-plugins": { "dealerdirect/phpcodesniffer-composer-installer": true },
+    "sort-packages": true
+  },
+  "scripts": {
+    "lint": "php scripts/lint.php",
+    "standards": "phpcs",
+    "compatibility": "phpcs --standard=PHPCompatibilityWP --runtime-set testVersion 8.2- --extensions=php bulk_password_reset.php includes uninstall.php",
+    "test": "phpunit",
+    "metadata": "php scripts/check-release.php",
+    "package": "php scripts/package.php"
+  }
+}

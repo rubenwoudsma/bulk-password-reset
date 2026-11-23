@@ -1,0 +1,39 @@
+name: Sync published readme
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Show the diff without publishing
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wordpress-org-bulk-password-reset
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.repository == 'rubenwoudsma/bulk-password-reset' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: wordpress-org
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Sync only an existing matching stable release
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          DEPLOY_ENABLED: ${{ vars.WPORG_DEPLOY_ENABLED }}
+          SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
+        run: |
+          if [ "$DRY_RUN" != true ] && [ "$DEPLOY_ENABLED" != true ]; then
+            echo 'WordPress.org publication is not enabled.'
+            exit 1
+          fi
+          bash .github/scripts/sync-readme.sh

@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<ruleset name="Bulk Password Reset">
+  <description>WordPress coding and security standards for shipped PHP.</description>
+  <file>bulk_password_reset.php</file>
+  <file>includes</file>
+  <file>uninstall.php</file>
+  <arg name="extensions" value="php"/>
+  <arg name="parallel" value="4"/>
+  <arg value="sp"/>
+  <config name="minimum_wp_version" value="6.8"/>
+  <rule ref="WordPress"/>
+  <!-- Keep the existing entry-point basename so installed copies stay activated. -->
+  <rule ref="WordPress.Files.FileName.NotHyphenatedLowercase"><exclude-pattern>*/bulk_password_reset.php</exclude-pattern></rule>
+  <rule ref="WordPress.WP.I18n"><properties><property name="text_domain" type="array"><element value="bulk-password-reset"/></property></properties></rule>
+</ruleset>

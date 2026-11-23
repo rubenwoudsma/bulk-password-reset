@@ -1,0 +1,27 @@
+name: Plugin readme preview
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - readme.txt
+      - '**/*.php'
+      - '.wordpress-org/**'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: readme-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    if: github.event.repository.private == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      # Intentionally no checkout: untrusted pull-request files are read as data.
+      # Do not execute PR scripts in this privileged workflow.
+      - uses: jdevalk/plugin-page-preview@2200faaecd4ec148bd4e861a68bd8f3ab0619bac # v1

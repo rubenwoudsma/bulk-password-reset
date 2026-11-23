@@ -1,0 +1,117 @@
+name: Quality and security
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_call:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 6 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Standards, metadata and package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+          extensions: mbstring, zip
+          coverage: none
+      - run: composer validate --strict
+      - run: composer install --no-interaction --prefer-dist
+      - run: composer audit --locked
+      - run: composer lint
+      - run: composer standards
+      - run: composer compatibility
+      - run: composer metadata
+      - run: composer package
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: plugin-package
+          path: dist/*.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  integration:
+    name: WordPress ${{ matrix.wordpress }} / PHP ${{ matrix.php }} / ${{ matrix.mode }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { php: '8.2', wordpress: '6.8', mode: single }
+          - { php: '8.2', wordpress: latest, mode: single }
+          - { php: '8.3', wordpress: latest, mode: single }
+          - { php: '8.4', wordpress: latest, mode: single }
+          - { php: '8.5', wordpress: latest, mode: single }
+          - { php: '8.4', wordpress: latest, mode: multisite }
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wordpress_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -proot"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mysqli, mbstring, zip
+          tools: composer:v2, wp-cli
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist
+      - name: Install disposable WordPress
+        env:
+          WP_VERSION: ${{ matrix.wordpress }}
+          WP_MODE: ${{ matrix.mode }}
+          BPR_WP_ROOT: ${{ runner.temp }}/wordpress
+        run: |
+          wp core download --version="$WP_VERSION" --path="$BPR_WP_ROOT"
+          wp config create --path="$BPR_WP_ROOT" --dbname=wordpress_test --dbuser=root --dbpass=root --dbhost=127.0.0.1:3306
+          wp config set BPR_TESTING true --raw --path="$BPR_WP_ROOT"
+          wp config set WP_ENVIRONMENT_TYPE local --path="$BPR_WP_ROOT"
+          if [ "$WP_MODE" = multisite ]; then
+            wp core multisite-install --path="$BPR_WP_ROOT" --url=http://bpr.test --title=Tests --admin_user=testadmin --admin_password=disposable-test-password --admin_email=admin@example.test --skip-email
+          else
+            wp core install --path="$BPR_WP_ROOT" --url=http://bpr.test --title=Tests --admin_user=testadmin --admin_password=disposable-test-password --admin_email=admin@example.test --skip-email
+          fi
+      - run: composer test
+        env:
+          BPR_WP_ROOT: ${{ runner.temp }}/wordpress
+
+  plugin-check:
+    name: WordPress Plugin Check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
+        with:
+          php-version: '8.4'
+          extensions: zip
+          coverage: none
+      - run: php scripts/package.php
+      - run: unzip dist/*.zip -d build
+      - uses: WordPress/plugin-check-action@10857da14b6c2246d15402b3e69f777edcf8c12e # v1
+        with:
+          build-dir: build/bulk-password-reset
+          slug: bulk-password-reset
