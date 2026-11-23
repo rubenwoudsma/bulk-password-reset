@@ -21,6 +21,10 @@ The package script includes only explicitly listed runtime files, the plugin rea
 
 WordPress Coding Standards applies to all shipped PHP. A single filename exception preserves the historical `bulk_password_reset.php` activation basename. Tests and build scripts use ordinary PHP style and are syntax-checked separately. PHPCompatibilityWP supplements syntax tests; it is not proof of compatibility with every future PHP version.
 
+Composer resolves development dependencies for PHP 8.2.0 through `config.platform.php`, including when updating the lock file on a newer interpreter. Keep that target aligned with the plugin's minimum supported PHP version. CI also runs `composer check-platform-reqs` against each actual interpreter, so the resolution target does not replace runtime verification.
+
+PHPUnit remains on the PHP 8.2-compatible 11.x line. Dependabot still proposes compatible minor/patch updates, while PHPUnit major upgrades require a deliberate compatibility review. Do not raise the plugin's PHP minimum just to accommodate a test-tool update. CI installs WP-CLI 2.12.0 from its official release asset with a fixed SHA256 and bounded download retries; update both version and checksum when changing that tool.
+
 ## Integration tests
 
 Tests run against **real WordPress**, using a disposable installed site rather than mocked WordPress functions. They create and delete users and change their passwords. Never point them at a production site.

@@ -29,6 +29,7 @@ jobs:
           coverage: none
       - run: composer validate --strict
       - run: composer install --no-interaction --prefer-dist
+      - run: composer check-platform-reqs
       - run: composer audit --locked
       - run: composer lint
       - run: composer standards
@@ -74,9 +75,24 @@ jobs:
         with:
           php-version: ${{ matrix.php }}
           extensions: mysqli, mbstring, zip
-          tools: composer:v2, wp-cli
+          tools: composer:v2
           coverage: none
+      - name: Install verified WP-CLI with download retries
+        env:
+          WP_CLI_VERSION: '2.12.0'
+          WP_CLI_SHA256: ce34ddd838f7351d6759068d09793f26755463b4a4610a5a5c0a97b68220d85c
+        run: |
+          mkdir -p "$RUNNER_TEMP/bpr-tools"
+          curl --fail --location --retry 3 --retry-all-errors --connect-timeout 15 --max-time 120 \
+            "https://github.com/wp-cli/wp-cli/releases/download/v${WP_CLI_VERSION}/wp-cli-${WP_CLI_VERSION}.phar" \
+            --output "$RUNNER_TEMP/bpr-tools/wp"
+          printf '%s  %s\n' "$WP_CLI_SHA256" "$RUNNER_TEMP/bpr-tools/wp" | sha256sum --check
+          chmod +x "$RUNNER_TEMP/bpr-tools/wp"
+          echo "$RUNNER_TEMP/bpr-tools" >> "$GITHUB_PATH"
+      - name: Verify WP-CLI is available
+        run: wp --info
       - run: composer install --no-interaction --prefer-dist
+      - run: composer check-platform-reqs
       - name: Install disposable WordPress
         env:
           WP_VERSION: ${{ matrix.wordpress }}
