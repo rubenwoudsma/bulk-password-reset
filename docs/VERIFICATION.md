@@ -12,7 +12,7 @@ Verified locally on 23 November 2026. All environments were disposable installat
 
 These runs used PHPUnit 11.5.58 and the official SQLite Database Integration plugin 3.1.3. They exercised the actual WordPress user, capability, option, session, mail-filter and password-reset functions. WordPress functions were not replaced with test doubles. Mail was intercepted through `pre_wp_mail` and retained only in the disposable test environment.
 
-The GitHub matrix is configured to repeat tests with MySQL 8.0 and PHP 8.2–8.5. GitHub-hosted runs and the additional PHP 8.3/8.5 combinations have not yet executed; those depend on pushing the branch. Passing the local SQLite runs does not substitute for that MySQL matrix.
+The GitHub matrix repeats tests with MySQL 8.0 and PHP 8.2–8.5. Hosted results, including the additional PHP 8.3/8.5 combinations, are available in [pull request #1's checks](https://github.com/rubenwoudsma/bulk-password-reset/pull/1/checks). The local SQLite runs complement that separate MySQL matrix.
 
 Coverage includes the source-confirmed missing-authorization path, lower-privilege denial, per-target edit capabilities, multi-role privileged accounts, reset policy denials/errors, confirmation, nonces, POST requirements, job ownership, expiry, concurrency guards, cancellation, reset-key hashing/single use/expiry, both reset modes, session destruction, failed email, failed checkpoints, uncertain outcomes, custom roles, role changes, and a 105-account batch job without duplicate email.
 
@@ -50,6 +50,6 @@ The two WordPress.org screenshots in `.wordpress-org` and `docs/mobile-admin.png
 
 ## Outstanding external validation and release steps
 
-Push the branch and run the GitHub MySQL/PHP matrix and Plugin Check job. Confirm delivery through a real staging mail provider and review translations as needed. The readme-preview PR comment, WordPress.org deployment, remote readme sync, Plugins-team reopening, and advisory-provider acceptance have not been performed. No repository secrets or live-site credentials were requested or configured.
+Review the GitHub MySQL/PHP matrix and Plugin Check results in the pull request. Confirm delivery through a real staging mail provider and review translations as needed. The readme-preview PR comment, WordPress.org deployment, remote readme sync, Plugins-team reopening, and advisory-provider acceptance have not been performed. No repository secrets or live-site credentials were requested or configured; the push and pull request use the maintainer's existing local GitHub sign-in.
 
 See `RELEASING.md` for the one-time repository/environment setup and controlled publication procedure. This is a tested staging candidate; it is not a claim that the historical public advisory has been closed.

@@ -45,4 +45,4 @@ Jobs are owned by an administrator and site, expire after 48 hours, and require 
 
 ## Release status
 
-The candidate replaces the source-confirmed vulnerable path and has security regression coverage. Actual local checks are recorded in `docs/VERIFICATION.md`. GitHub Actions execution, production mail delivery, Plugins-team reopening, and advisory-provider acceptance require subsequent external work. Do not relabel the advisory as fixed solely because local tests pass.
+The candidate replaces the source-confirmed vulnerable path and has security regression coverage. Local verification and the link to GitHub Actions results are recorded in `docs/VERIFICATION.md`. Production mail delivery, Plugins-team reopening, and advisory-provider acceptance remain separate release steps. Do not relabel the advisory as fixed solely because automated tests pass.
