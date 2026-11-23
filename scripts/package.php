@@ -10,7 +10,7 @@ if (!is_dir($directory)) { mkdir($directory, 0775, true); }
 $path = "$directory/bulk-password-reset-$version.zip";
 $zip = new ZipArchive();
 if ($zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) { throw new RuntimeException('Could not create ZIP.'); }
-$files = ['bulk_password_reset.php', 'uninstall.php', 'readme.txt', 'LICENSE'];
+$files = ['bulk_password_reset.php', 'uninstall.php', 'readme.txt', 'LICENSE', 'assets/admin.css', 'assets/ruben-woudsma-logo.png'];
 foreach (['includes', 'languages'] as $subdirectory) {
     if (!is_dir("$root/$subdirectory")) { continue; }
     $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator("$root/$subdirectory", FilesystemIterator::SKIP_DOTS));

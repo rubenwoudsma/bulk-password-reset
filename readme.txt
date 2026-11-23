@@ -30,6 +30,7 @@ Immediate invalidation cannot be undone. If email fails, the password still chan
 * Batches of up to 20 candidates per request, with no total user limit or paid tier. Click Continue to run each next batch; no background worker or cron is required.
 * Resume a job for 48 hours. One active job per site; only its originating administrator can run or cancel it.
 * Optional plain-text email note and user-locale support.
+* A light, responsive admin layout with clear steps, reset-mode cards, and progress reports.
 * WordPress reset-key generation, hashing, expiration and single-use validation.
 * Per-request operator permissions and per-account edit checks.
 * Separate counts for emails accepted for sending, failures, protected accounts, interrupted outcomes and password invalidations.
@@ -97,6 +98,7 @@ The old settings, including stored shared passwords and custom keys, are deleted
 * Use secure WordPress reset links; remove shared passwords, custom reset keys, and plaintext password emails.
 * Add resumable batches, previews, explicit immediate invalidation, session revocation, and honest failure reporting.
 * Add automated security regression tests, WordPress coding standards, release checks, and GitHub Actions workflows.
+* Introduce a responsive admin interface with locally bundled Ruben Woudsma branding and an author website link.
 
 = 1.3.3 =
 * Last historical WordPress.org release. Do not use for new installations.

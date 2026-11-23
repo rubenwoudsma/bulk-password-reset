@@ -24,6 +24,7 @@ define( 'BULK_PASSWORD_RESET_VERSION', '2.0.0' );
 
 require_once __DIR__ . '/includes/class-service.php';
 require_once __DIR__ . '/includes/class-jobs.php';
+require_once __DIR__ . '/includes/class-view.php';
 require_once __DIR__ . '/includes/class-admin.php';
 
 /**

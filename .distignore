@@ -12,7 +12,7 @@ scripts
 docs
 dist
 build
-assets
+assets/README.md
 README.md
 CONTRIBUTING.md
 SECURITY.md

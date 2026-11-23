@@ -21,7 +21,9 @@ Add these **environment secrets**:
 
 Set the **environment variable** `WPORG_DEPLOY_ENABLED` to `true` only when the Plugins team permits publication. Leaving it unset blocks publication. GitHub will create a missing named environment automatically if referenced, so configure its protections explicitly rather than assuming the workflow enforces them by itself.
 
-Enable Actions and Dependabot updates. Set branch protection/rulesets to require the quality, integration, and Plugin Check jobs before merging. Enable private vulnerability reporting for the repository's Security tab.
+Actions are enabled. On 23 November 2026, master branch protection was configured to require a pull request, all eight quality/integration/Plugin Check jobs from the GitHub Actions app, an up-to-date branch, and resolved review conversations. The rule applies to administrators and blocks force pushes and deletion. It requires zero approving reviews so the sole maintainer can merge a passing PR without a second reviewer. If CI job names change, update the required checks to match. These are live repository settings, separate from workflow files.
+
+Enable Dependabot updates and private vulnerability reporting for the repository's Security tab as appropriate.
 
 The workflow source currently uses `master`, matching the existing repository. Update branch references and this document if the default branch changes.
 

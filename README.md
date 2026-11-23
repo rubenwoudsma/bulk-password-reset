@@ -8,6 +8,8 @@ Version 2.0.0 is a substantial security rebuild of the historical plugin. It is 
 
 Open **Users → Bulk Password Reset**, select roles, choose a reset mode, and preview the candidates. Alternatively, select accounts on the Users screen and choose **Preview password reset**.
 
+The responsive admin screen uses a three-step workflow, clear reset-mode cards, and a separate progress report. Ruben Woudsma's logo and author link appear only on this plugin's screen. The logo and styles are bundled locally; displaying the page makes no request to the author's website and adds no credits to public-facing pages or user emails.
+
 Confirm the preview to begin. Each request handles up to 20 candidates. Use **Continue next batch** until the job finishes; there is no total user limit. Progress is saved, and the originating administrator can resume for 48 hours or cancel remaining work. No background worker or cron is required.
 
 | Mode | Existing password | Browser sessions | Email |
@@ -43,4 +45,4 @@ See [release setup](docs/RELEASING.md), [development and tests](CONTRIBUTING.md)
 
 ## License
 
-GPL-2.0-or-later. Original plugin by Ruben Woudsma; historical inspiration included Joost de Valk and Pressography. The inherited WordPress.org banner is retained from the original repository. The new icon source is in `docs/icon-source.svg` under the same GPL license. See `LICENSE` and the historical attribution in Git history.
+GPL-2.0-or-later. Original plugin by Ruben Woudsma; historical inspiration included Joost de Valk and Pressography. The inherited WordPress.org banner is retained from the original repository. The plugin icon source is in `docs/icon-source.svg`; author-logo attribution is in `assets/README.md`. See `LICENSE` and the historical attribution in Git history.

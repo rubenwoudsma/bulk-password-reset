@@ -35,6 +35,7 @@ final class Admin {
 	 */
 	public function register() {
 		add_action( 'admin_menu', array( $this, 'menu' ) );
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_action( 'admin_post_bpr_preview', array( $this, 'preview' ) );
 		add_action( 'admin_post_bpr_process', array( $this, 'process' ) );
 		add_action( 'load-users.php', array( $this, 'users_preview' ) );
@@ -60,6 +61,24 @@ final class Admin {
 		if ( Service::can_manage() ) {
 			add_users_page( __( 'Bulk Password Reset', 'bulk-password-reset' ), __( 'Bulk Password Reset', 'bulk-password-reset' ), 'manage_options', 'bulk_password_reset', array( $this, 'render' ) );
 		}
+	}
+
+	/**
+	 * Load local styles only for this plugin's own authorized admin page.
+	 *
+	 * @param string $hook_suffix Current administration screen.
+	 * @return void
+	 */
+	public function enqueue_assets( $hook_suffix ) {
+		if ( 'users_page_bulk_password_reset' !== $hook_suffix || ! Service::can_manage() ) {
+			return;
+		}
+		wp_enqueue_style(
+			'bulk-password-reset-admin',
+			plugins_url( 'assets/admin.css', dirname( __DIR__ ) . '/bulk_password_reset.php' ),
+			array(),
+			BULK_PASSWORD_RESET_VERSION
+		);
 	}
 
 	/**
@@ -199,152 +218,12 @@ final class Admin {
 	}
 
 	/**
-	 * Render the selection screen or active job.
+	 * Render the authorized administration screen.
 	 *
 	 * @return void
 	 */
 	public function render() {
 		$this->authorize();
-		$job = $this->jobs->current();
-		?>
-		<div class="wrap">
-			<h1><?php esc_html_e( 'Bulk Password Reset', 'bulk-password-reset' ); ?></h1>
-			<p><?php esc_html_e( 'Send secure password-reset links to users selected by role or from the Users screen. All features are free.', 'bulk-password-reset' ); ?></p>
-			<p><?php esc_html_e( 'Your own account, administrators, and accounts that can manage settings or edit users are always excluded.', 'bulk-password-reset' ); ?></p>
-			<?php if ( is_multisite() ) : ?>
-				<div class="notice notice-warning inline"><p><?php esc_html_e( 'Multisite: only super administrators can run this tool. Selection is limited to this site, but passwords and sessions are shared across the network.', 'bulk-password-reset' ); ?></p></div>
-			<?php endif; ?>
-			<?php
-			if ( $job && $job['expires'] > time() && get_current_user_id() !== $job['owner'] && in_array( $job['status'], array( 'ready', 'running' ), true ) ) {
-				echo '<p>' . esc_html__( 'Another administrator has an active preview or job on this site. They must finish or cancel it, or let it expire after 48 hours.', 'bulk-password-reset' ) . '</p>';
-			} elseif ( $job && $job['expires'] > time() && get_current_user_id() === $job['owner'] && in_array( $job['status'], array( 'ready', 'running' ), true ) ) {
-				$this->render_job( $job );
-			} else {
-				if ( $job && get_current_user_id() === $job['owner'] ) {
-					$this->summary( $job );
-				}
-				$this->render_form();
-			}
-			?>
-		</div>
-		<?php
-	}
-
-	/**
-	 * Render the initial role and reset-mode form.
-	 *
-	 * @return void
-	 */
-	private function render_form() {
-		?>
-		<form action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post">
-			<input type="hidden" name="action" value="bpr_preview">
-			<?php wp_nonce_field( 'bpr_preview' ); ?>
-			<h2><?php esc_html_e( 'Choose recipients', 'bulk-password-reset' ); ?></h2>
-			<fieldset>
-				<legend class="screen-reader-text"><?php esc_html_e( 'User roles', 'bulk-password-reset' ); ?></legend>
-				<?php foreach ( wp_roles()->get_names() as $slug => $name ) : ?>
-					<?php
-					if ( 'administrator' === $slug ) {
-						continue; }
-					?>
-					<p><label><input type="checkbox" name="roles[]" value="<?php echo esc_attr( $slug ); ?>"> <?php echo esc_html( translate_user_role( $name ) ); ?></label></p>
-				<?php endforeach; ?>
-			</fieldset>
-			<h2><?php esc_html_e( 'Reset mode', 'bulk-password-reset' ); ?></h2>
-			<fieldset>
-				<legend class="screen-reader-text"><?php esc_html_e( 'Reset mode', 'bulk-password-reset' ); ?></legend>
-				<p><label><input type="radio" name="mode" value="link" checked> <?php esc_html_e( 'Send reset links. Existing passwords and sessions keep working until users change their passwords.', 'bulk-password-reset' ); ?></label></p>
-				<p><label><input type="radio" name="mode" value="invalidate"> <?php esc_html_e( 'Invalidate passwords and browser sessions immediately, then send reset links.', 'bulk-password-reset' ); ?></label></p>
-			</fieldset>
-			<p><label for="bpr-note"><?php esc_html_e( 'Optional plain-text note for the email', 'bulk-password-reset' ); ?></label></p>
-			<textarea id="bpr-note" name="note" class="large-text" rows="4" maxlength="2000"></textarea>
-			<?php submit_button( __( 'Preview recipients', 'bulk-password-reset' ) ); ?>
-		</form>
-		<?php
-	}
-
-	/**
-	 * Render a preview, confirmation and batch controls.
-	 *
-	 * @param array $job Current job.
-	 * @return void
-	 */
-	private function render_job( $job ) {
-		$this->summary( $job );
-		if ( 'ready' === $job['status'] ) {
-			$service = new Service();
-			$users   = $service->query( $job['selection'] )->get_results();
-			?>
-			<h2><?php esc_html_e( 'Recipient preview', 'bulk-password-reset' ); ?></h2>
-			<p><?php esc_html_e( 'Showing the first 20 candidates. The candidate count includes protected accounts, which will be skipped. Roles and permissions are checked again during processing; new accounts registered after this preview are excluded.', 'bulk-password-reset' ); ?></p>
-			<table class="widefat striped">
-				<thead><tr><th scope="col"><?php esc_html_e( 'Username', 'bulk-password-reset' ); ?></th><th scope="col"><?php esc_html_e( 'Eligibility', 'bulk-password-reset' ); ?></th></tr></thead>
-				<tbody>
-				<?php foreach ( $users as $user ) : ?>
-					<tr><td><?php echo esc_html( $user->user_login ); ?></td><td><?php echo $service->can_target( $user ) ? esc_html__( 'Eligible, subject to WordPress reset policy', 'bulk-password-reset' ) : esc_html__( 'Protected; will be skipped', 'bulk-password-reset' ); ?></td></tr>
-				<?php endforeach; ?>
-				</tbody>
-			</table>
-			<?php
-		}
-		?>
-		<p><strong><?php echo 'invalidate' === $job['mode'] ? esc_html__( 'Mode: invalidate passwords and browser sessions, then email reset links.', 'bulk-password-reset' ) : esc_html__( 'Mode: email reset links; existing passwords remain valid.', 'bulk-password-reset' ); ?></strong></p>
-		<?php if ( 'invalidate' === $job['mode'] ) : ?>
-			<div class="notice notice-warning inline"><p><?php esc_html_e( 'Immediate invalidation cannot be undone. If email fails, the password still changes. Verify your site can send mail before starting. Application passwords and external sign-in providers are not revoked.', 'bulk-password-reset' ); ?></p></div>
-		<?php endif; ?>
-		<?php if ( $job['note'] ) : ?>
-			<p><?php esc_html_e( 'Email note:', 'bulk-password-reset' ); ?> <?php echo esc_html( $job['note'] ); ?></p>
-		<?php endif; ?>
-		<p><?php esc_html_e( 'Each request processes up to 20 candidates. Use Continue for the next batch; no work runs in the background. You can resume this job for 48 hours.', 'bulk-password-reset' ); ?></p>
-		<form action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post">
-			<input type="hidden" name="action" value="bpr_process">
-			<input type="hidden" name="job" value="<?php echo esc_attr( $job['id'] ); ?>">
-			<?php wp_nonce_field( 'bpr_process_' . $job['id'] ); ?>
-			<?php if ( 'ready' === $job['status'] ) : ?>
-				<p><label><input type="checkbox" name="confirm" value="1"> <?php esc_html_e( 'I have reviewed the recipients and reset mode, and confirm this bulk reset.', 'bulk-password-reset' ); ?></label></p>
-			<?php endif; ?>
-			<?php submit_button( 'ready' === $job['status'] ? __( 'Start bulk reset', 'bulk-password-reset' ) : __( 'Continue next batch', 'bulk-password-reset' ), 'primary', 'submit', false ); ?>
-			<?php submit_button( __( 'Cancel remaining work', 'bulk-password-reset' ), 'secondary', 'cancel', false ); ?>
-		</form>
-		<?php
-	}
-
-	/**
-	 * Report aggregate results without storing reset credentials.
-	 *
-	 * @param array $job Current job.
-	 * @return void
-	 */
-	private function summary( $job ) {
-		$labels = array(
-			'ready'     => __( 'Awaiting confirmation', 'bulk-password-reset' ),
-			'running'   => __( 'In progress', 'bulk-password-reset' ),
-			'complete'  => __( 'Complete', 'bulk-password-reset' ),
-			'cancelled' => __( 'Cancelled', 'bulk-password-reset' ),
-		);
-		echo '<h2>' . esc_html( $job['expires'] <= time() ? __( 'Expired', 'bulk-password-reset' ) : $labels[ $job['status'] ] ) . '</h2>';
-		echo '<p>' . esc_html(
-			sprintf(
-				/* translators: 1: candidates, 2: sent, 3: failed, 4: skipped, 5: interrupted, 6: invalidated. */
-				__( 'Candidates at preview: %1$d. Emails accepted for sending: %2$d. Failed: %3$d. Skipped: %4$d. Interrupted / outcome unknown: %5$d. Passwords invalidated: %6$d.', 'bulk-password-reset' ),
-				$job['total'],
-				$job['sent'],
-				$job['failed'],
-				$job['skipped'],
-				$job['uncertain'] + ( $job['in_flight'] ? 1 : 0 ),
-				$job['invalidated']
-			)
-		) . '</p>';
-		echo '<p>' . esc_html__( 'Accepted for sending does not guarantee delivery. Interrupted accounts are not retried automatically; review them separately. No passwords or reset links are stored in this report.', 'bulk-password-reset' ) . '</p>';
-		$review_ids = array_unique( array_merge( $job['failed_ids'], $job['uncertain_ids'], $job['in_flight'] ? array( $job['in_flight'] ) : array() ) );
-		if ( $review_ids ) {
-			echo '<p><strong>' . esc_html__( 'Accounts to review (up to 100 failures and 100 interrupted outcomes):', 'bulk-password-reset' ) . '</strong></p><ul>';
-			foreach ( $review_ids as $review_id ) {
-				$user = get_user_by( 'id', $review_id );
-				echo '<li><a href="' . esc_url( get_edit_user_link( $review_id ) ) . '">' . esc_html( $user ? $user->user_login : (string) $review_id ) . '</a> (' . esc_html( (string) $review_id ) . ')</li>';
-			}
-			echo '</ul>';
-		}
+		( new View( $this->jobs->current() ) )->render();
 	}
 }

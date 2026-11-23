@@ -514,6 +514,25 @@ final class SecurityTest extends TestCase
         }
     }
 
+    public function testAdminAssetsAreLimitedToAuthorizedPluginScreen(): void
+    {
+        $handle = 'bulk-password-reset-admin';
+        wp_dequeue_style($handle);
+        wp_deregister_style($handle);
+        $admin = new Admin($this->jobs);
+        $admin->enqueue_assets('index.php');
+        $admin->enqueue_assets('users.php');
+        self::assertFalse(wp_style_is($handle, 'enqueued'));
+        $admin->enqueue_assets('users_page_bulk_password_reset');
+        self::assertTrue(wp_style_is($handle, 'enqueued'));
+        self::assertStringEndsWith('/assets/admin.css', wp_styles()->registered[$handle]->src);
+        wp_dequeue_style($handle);
+        wp_set_current_user($this->target);
+        $admin->enqueue_assets('users_page_bulk_password_reset');
+        self::assertFalse(wp_style_is($handle, 'enqueued'));
+        wp_deregister_style($handle);
+    }
+
     private static function assertWPErrorCode(string $code, mixed $value): void
     {
         self::assertInstanceOf(WP_Error::class, $value);

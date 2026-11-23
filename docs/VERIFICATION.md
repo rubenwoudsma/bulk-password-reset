@@ -6,9 +6,9 @@ Verified locally on 23 November 2026. All environments were disposable installat
 
 | Environment | Result | Assertions |
 | --- | --- | --- |
-| WordPress 6.8 / PHP 8.2.36 / single site | 36 passed, 2 multisite-only tests skipped | 361 |
-| WordPress 7.1.5 / PHP 8.4.28 / single site | 36 passed, 2 multisite-only tests skipped | 361 |
-| WordPress 7.1.5 / PHP 8.4.28 / multisite | All 38 passed | 368 |
+| WordPress 6.8 / PHP 8.2.36 / single site | 37 passed, 2 multisite-only tests skipped | 367 |
+| WordPress 7.1.5 / PHP 8.4.28 / single site | 37 passed, 2 multisite-only tests skipped | 367 |
+| WordPress 7.1.5 / PHP 8.4.28 / multisite | All 39 passed | 374 |
 
 These runs used PHPUnit 11.5.58 and the official SQLite Database Integration plugin 3.1.3. They exercised the actual WordPress user, capability, option, session, mail-filter and password-reset functions. WordPress functions were not replaced with test doubles. Mail was intercepted through `pre_wp_mail` and retained only in the disposable test environment.
 
@@ -28,8 +28,12 @@ Chromium 151.0.7922.34 exercised WordPress 7.1.5/PHP 8.4.28 through the actual H
 6. Immediate invalidation ending an editor's already-open browser session.
 7. Native Users-table bulk action opening a one-account preview without performing a reset, followed by cancellation.
 8. A 390-pixel mobile layout with no horizontal overflow.
+9. Local CSS and logo loading on the plugin screen, with no plugin stylesheet loaded on the main Dashboard.
+10. A 768-pixel tablet layout with no horizontal overflow.
+11. No automatic requests to the author's website while rendering or using the page.
+12. Axe-core 4.14.1 WCAG 2.1 A/AA scans of desktop selection, desktop preview, and mobile selection, with zero reported violations.
 
-All eight checks passed. There were no unexpected JavaScript errors. Chromium reported one skipped WordPress admin view transition during rapid automated navigation; that browser warning was recorded separately. The plugin ships no JavaScript.
+All twelve checks passed. There were no unexpected JavaScript errors. Chromium reported one skipped WordPress admin view transition during rapid automated navigation; that browser warning was recorded separately. The plugin ships no JavaScript. Automated accessibility scans supplement manual review and do not constitute a full accessibility audit.
 
 Browser testing found and corrected a real integration issue: WordPress strips the Users form's GET nonce before invoking the default bulk-action filter. The replacement captures the preview earlier with capability and nonce enforcement intact, and still requires a separate confirmed POST before executing resets.
 
@@ -46,7 +50,7 @@ The two WordPress.org screenshots in `.wordpress-org` and `docs/mobile-admin.png
 * A deliberately mismatched release tag was correctly rejected.
 * Actionlint 1.7.12 validated all four workflows. The readme-sync script passed Bash syntax validation.
 * Git's whitespace check passed for tracked changes.
-* The runtime ZIP contains only five runtime PHP files, readme, license, and the generated translation catalog. Development dependencies, tests, workflows, screenshots, and source documentation are excluded from the installation package.
+* The runtime ZIP contains only six runtime PHP files, the local stylesheet and author logo, readme, license, and the generated translation catalog. Development dependencies, tests, workflows, screenshots, and source documentation are excluded from the installation package.
 
 ## Outstanding external validation and release steps
 
