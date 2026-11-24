@@ -70,4 +70,8 @@ The plugin never automatically steals a lock from a possibly active sender. Comp
 
 ## Translations
 
+Use consistent user-facing terms: **user** for a WordPress user (Dutch: gebruiker), **account** for credentials and access (gebruikersaccount), **recipient** for someone selected to receive a reset email (ontvanger), and **administrator** for the person operating the tool (beheerder). Preview counts include protected users, so label them as selected users rather than promising a recipient count. Keep `owner` as an internal job field; on screen, say the administrator who started the reset.
+
+Preserve unchanged gettext strings and add translator context where necessary. Changed 2.0.1 phrases need corresponding translation updates on translate.wordpress.org; regenerating the POT does not approve or publish Dutch translations.
+
 The text domain is `bulk-password-reset`. New translations can be managed through WordPress.org. To regenerate the source catalog, run `wp i18n make-pot . languages/bulk-password-reset.pot --domain=bulk-password-reset --exclude=vendor,tests,scripts,dist,build`. Legacy underscored-domain catalogs were removed because they describe a different interface.

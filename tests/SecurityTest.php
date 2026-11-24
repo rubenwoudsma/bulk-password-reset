@@ -2,6 +2,7 @@
 use BulkPasswordReset\Admin;
 use BulkPasswordReset\Jobs;
 use BulkPasswordReset\Service;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class SecurityTest extends TestCase
@@ -366,6 +367,135 @@ final class SecurityTest extends TestCase
         self::assertSame(1, $result['sent']);
         self::assertSame($before, get_userdata($this->target)->user_pass);
         self::assertSame(get_userdata($second)->user_email, $this->mails[0]['to']);
+    }
+
+    public static function completionBoundaries(): array
+    {
+        return ['one' => [1], 'below batch' => [19], 'one full batch' => [20],
+            'over one batch' => [21], 'two full batches' => [40]];
+    }
+
+    #[DataProvider('completionBoundaries')]
+    public function testCompletionNeedsNoEmptyContinuation(int $size): void
+    {
+        $ids = [$this->target];
+        for ($number = 1; $number < $size; ++$number) { $ids[] = $this->user('subscriber'); }
+        $job = $this->preview('link', $ids);
+        $requests = (int) ceil($size / Jobs::BATCH_SIZE);
+        for ($request = 1; $request <= $requests; ++$request) {
+            $result = $this->jobs->process($job['id'], $request === 1);
+            self::assertSame(min($size, $request * Jobs::BATCH_SIZE), $result['sent']);
+            self::assertSame($request === $requests ? 'complete' : 'running', $result['status']);
+        }
+        $this->jobs->process($job['id'], true);
+        self::assertCount($size, $this->mails);
+        self::assertCount($size, array_unique(array_column($this->mails, 'to')));
+    }
+
+    public function testLookaheadDoesNotInvalidateOrEmailTheNextRecipient(): void
+    {
+        $ids = [$this->target];
+        for ($number = 1; $number <= Jobs::BATCH_SIZE; ++$number) { $ids[] = $this->user('subscriber'); }
+        $last = end($ids);
+        $before = get_userdata($last);
+        $sessions = WP_Session_Tokens::get_instance($last);
+        $token = $sessions->create(time() + HOUR_IN_SECONDS);
+        $job = $this->preview('invalidate', $ids);
+        $first = $this->jobs->process($job['id'], true);
+        self::assertSame('running', $first['status']);
+        self::assertSame(20, $first['invalidated']);
+        self::assertCount(20, $this->mails);
+        self::assertSame($before->user_pass, get_userdata($last)->user_pass);
+        self::assertSame($before->user_activation_key, get_userdata($last)->user_activation_key);
+        self::assertTrue($sessions->verify($token));
+        self::assertNotContains($before->user_email, array_column($this->mails, 'to'));
+        $final = $this->jobs->process($job['id']);
+        self::assertSame('complete', $final['status']);
+        self::assertSame(21, $final['invalidated']);
+        self::assertFalse($sessions->verify($token));
+    }
+
+    public function testCompletedResultsStayOnStepThreeAndRetainReviewDetails(): void
+    {
+        $this->mailResult = false;
+        $job = $this->preview();
+        $this->jobs->process($job['id'], true);
+        $html = $this->screen();
+        $this->assertStep(3, $html);
+        self::assertStringContainsString('Start a new reset', $html);
+        self::assertStringContainsString('data-bpr-stat="failed"', $html);
+        self::assertStringContainsString(get_userdata($this->target)->user_login, $html);
+        self::assertStringNotContainsString('class="bpr-card bpr-reset-form"', $html);
+    }
+
+    public function testStartingNewResetIsReadOnlyUntilTheNextPreview(): void
+    {
+        $first = $this->preview();
+        $before = $this->jobs->process($first['id'], true);
+        $_GET['view'] = 'new';
+        $html = $this->screen();
+        $this->assertStep(1, $html);
+        self::assertStringContainsString('class="bpr-card bpr-reset-form"', $html);
+        self::assertStringContainsString('View previous reset results', $html);
+        self::assertSame($before, $this->jobs->current());
+        self::assertCount(1, $this->mails);
+        $_GET = [];
+        $this->assertStep(3, $this->screen());
+        $second = $this->preview();
+        self::assertNotSame($first['id'], $second['id']);
+        self::assertSame($second, $this->jobs->current());
+        self::assertCount(1, $this->mails);
+    }
+
+    public function testNewResetNavigationCannotBypassAnActivePreviewOrItsOwner(): void
+    {
+        $job = $this->preview();
+        $_GET['view'] = 'new';
+        $this->assertStep(2, $this->screen());
+        self::assertStringNotContainsString('class="bpr-card bpr-reset-form"', $this->screen());
+        wp_set_current_user($this->user('administrator'));
+        $html = $this->screen();
+        self::assertStringContainsString('A reset is already in progress', $html);
+        self::assertStringNotContainsString('class="bpr-card bpr-reset-form"', $html);
+        self::assertSame($job, $this->jobs->current());
+        self::assertSame([], $this->mails);
+    }
+
+    public function testTerminalStatusSurvivesTheResumeDeadlineButActiveJobsExpire(): void
+    {
+        $job = $this->preview();
+        $complete = $this->jobs->process($job['id'], true);
+        $complete['expires'] = time() - 1;
+        update_option(Jobs::OPTION, $complete, false);
+        self::assertStringContainsString('<h2>Complete</h2>', $this->screen());
+        $this->assertStep(3, $this->screen());
+        $complete['status'] = 'cancelled';
+        update_option(Jobs::OPTION, $complete, false);
+        self::assertStringContainsString('<h2>Cancelled</h2>', $this->screen());
+        $complete['status'] = 'running';
+        update_option(Jobs::OPTION, $complete, false);
+        self::assertStringContainsString('<h2>Expired</h2>', $this->screen());
+        self::assertStringContainsString('Start a new reset', $this->screen());
+        self::assertWPErrorCode('job', $this->jobs->process($job['id']));
+    }
+
+    private function screen(): string
+    {
+        ob_start();
+        try { (new Admin($this->jobs))->render(); return ob_get_contents(); }
+        finally { ob_end_clean(); }
+    }
+
+    private function assertStep(int $number, string $html): void
+    {
+        $document = new DOMDocument();
+        $previous = libxml_use_internal_errors(true);
+        $document->loadHTML('<?xml encoding="UTF-8">' . $html);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+        $current = (new DOMXPath($document))->query('//ol[@class="bpr-steps"]/li[@aria-current="step"]');
+        self::assertCount(1, $current);
+        self::assertSame((string) $number, $current->item(0)->getElementsByTagName('span')->item(0)->textContent);
     }
 
     public function testBatchesResumeWithoutDuplicatesBeyondOneHundredUsers(): void

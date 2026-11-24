@@ -104,7 +104,7 @@ final class Jobs {
 			function () use ( $roles, $ids, $mode, $note ) {
 				$old = $this->current();
 				if ( $old && $old['expires'] > time() && in_array( $old['status'], array( 'ready', 'running' ), true ) ) {
-					return new \WP_Error( 'active', __( 'Finish or cancel the existing preview or job before creating another.', 'bulk-password-reset' ) );
+					return new \WP_Error( 'active', __( 'Finish or cancel the current reset before starting another.', 'bulk-password-reset' ) );
 				}
 				if ( ! in_array( $mode, array( 'link', 'invalidate' ), true ) || strlen( $note ) > 4000 ) {
 					return new \WP_Error( 'settings', __( 'Choose a valid mode and keep the note under 4,000 bytes.', 'bulk-password-reset' ) );
@@ -150,7 +150,7 @@ final class Jobs {
 		$job = $this->current();
 		if ( ! $job || ! hash_equals( $job['id'], $id ) || get_current_user_id() !== $job['owner']
 			|| get_current_blog_id() !== $job['blog_id'] || $job['expires'] <= time() ) {
-			return new \WP_Error( 'job', __( 'This job is unavailable, has expired, or belongs to another administrator.', 'bulk-password-reset' ) );
+			return new \WP_Error( 'job', __( 'This reset is unavailable, has expired, or was started by another administrator.', 'bulk-password-reset' ) );
 		}
 		return $job;
 	}
@@ -181,8 +181,11 @@ final class Jobs {
 					}
 					$job['in_flight'] = 0;
 				}
-				$users = $this->service->query( $job['selection'], $job['cursor'], self::BATCH_SIZE )->get_results();
-				foreach ( $users as $user ) {
+				// Read one extra user to detect completion at exact batch boundaries.
+				// The look-ahead user is never processed or checkpointed in this request.
+				$users    = $this->service->query( $job['selection'], $job['cursor'], self::BATCH_SIZE + 1 )->get_results();
+				$has_more = count( $users ) > self::BATCH_SIZE;
+				foreach ( array_slice( $users, 0, self::BATCH_SIZE ) as $user ) {
 					if ( ! Service::can_manage() ) {
 						break;
 					}
@@ -204,7 +207,7 @@ final class Jobs {
 						return $this->storage_error();
 					}
 				}
-				if ( count( $users ) < self::BATCH_SIZE && 0 === $job['in_flight'] && Service::can_manage() ) {
+				if ( ! $has_more && 0 === $job['in_flight'] && Service::can_manage() ) {
 					$job['status'] = 'complete';
 				}
 				return $this->save( $job ) ? $job : $this->storage_error();

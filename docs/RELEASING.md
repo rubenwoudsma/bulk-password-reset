@@ -1,5 +1,9 @@
 # Maintainer release setup
 
+## Current candidate — 24 November 2026
+
+Version 2.0.0 was uploaded to the existing SVN repository in revision r3818946, and the maintainer confirmed replying in the original closure thread. WordPress.org review/reopening is pending. Version 2.0.1 in this branch is a maintenance candidate for review; preparing or merging its PR does not create a release tag or authorize publication. Keep `WPORG_DEPLOY_ENABLED=false` while waiting for the Plugins team unless a subsequent upload is explicitly authorized.
+
 ## First: review and reopening
 
 As checked on 23 November 2026, WordPress.org lists Bulk Password Reset 1.3.3 as temporarily closed pending review. Wordfence lists CVE-2026-14873 as affecting versions through 1.3.3 and having no known patch. This working copy does not change those external records.
@@ -37,7 +41,7 @@ GitHub Release publishing and SVN uploading are separate jobs. `WPORG_DEPLOY_ENA
 
 ## Preview release notes, package and SVN changes
 
-Open **Actions → Release plugin → Run workflow**, select `master`, and enter version `2.0.0`. The manual trigger is deliberately preview-only: it cannot be switched to a real upload with an input. No Git release tag or GitHub Release is created.
+Open **Actions → Release plugin → Run workflow**, select `master`, and enter the candidate version (currently `2.0.1`). The manual trigger is deliberately preview-only: it cannot be switched to a real upload with an input. No Git release tag or GitHub Release is created.
 
 The workflow reruns all nine CI jobs and prepares a **github-release-candidate** artifact containing the tested ZIP, release notes (`notes.md`), checksum and source/file metadata (`release.json`). The run's Summary links the preparation results. You can inspect this candidate before creating a real tag.
 
@@ -60,8 +64,8 @@ Review the proposed additions, replacements and deletions, complete the original
 5. Create and push a numeric Git tag from the reviewed master commit:
 
 ```sh
-git tag -a 2.0.0 -m "Bulk Password Reset 2.0.0"
-git push origin 2.0.0
+git tag -a 2.0.1 -m "Bulk Password Reset 2.0.1"
+git push origin 2.0.1
 ```
 
 The release workflow reruns all nine CI checks on that tag and publishes the GitHub Release as described above. If the SVN gate is enabled and any configured environment approvals are satisfied, it also verifies metadata, checks that the commit belongs to master, refuses an existing SVN release tag, and deploys the generated runtime tree using 10up's action. Runtime files are built using the same allowlist as the installable ZIP. There are no Composer dependencies in the plugin ZIP. The resulting report checks that the working copy matches the package and has no uncommitted changes. Keep the commit revision from the deployment log for the closure-thread reply.

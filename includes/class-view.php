@@ -20,12 +20,21 @@ final class View {
 	private $job;
 
 	/**
+	 * Whether to display the chooser while retaining the latest results.
+	 *
+	 * @var bool
+	 */
+	private $start_new;
+
+	/**
 	 * Create the administration view.
 	 *
 	 * @param array|null $job Current job.
+	 * @param bool       $start_new Whether the chooser was requested.
 	 */
-	public function __construct( $job ) {
-		$this->job = $job;
+	public function __construct( $job, $start_new = false ) {
+		$this->job       = $job;
+		$this->start_new = $start_new;
 	}
 
 	/**
@@ -34,18 +43,18 @@ final class View {
 	 * @return void
 	 */
 	public function render() {
-		$job    = $this->job;
-		$active = $job && $job['expires'] > time() && in_array( $job['status'], array( 'ready', 'running' ), true );
-		$owned  = $job && get_current_user_id() === $job['owner'];
-		$step   = $active && $owned ? ( 'ready' === $job['status'] ? 2 : 3 ) : 1;
-		$logo   = plugins_url( 'assets/ruben-woudsma-logo.png', dirname( __DIR__ ) . '/bulk_password_reset.php' );
+		$job         = $this->job;
+		$active      = $job && $job['expires'] > time() && in_array( $job['status'], array( 'ready', 'running' ), true );
+		$owned       = $job && get_current_user_id() === $job['owner'];
+		$show_report = $owned && ! $active && ! $this->start_new;
+		$step        = $active && $owned ? ( 'ready' === $job['status'] ? 2 : 3 ) : ( $show_report ? 3 : 1 );
+		$icon        = plugins_url( 'assets/plugin-icon.png', dirname( __DIR__ ) . '/bulk_password_reset.php' );
+		$logo        = plugins_url( 'assets/ruben-woudsma-logo.png', dirname( __DIR__ ) . '/bulk_password_reset.php' );
 		?>
 		<div class="wrap bpr-app">
 			<header class="bpr-header">
 				<div class="bpr-brand">
-					<a class="bpr-logo-link" href="https://rubenwoudsma.nl/" target="_blank" rel="noopener noreferrer" aria-label="<?php esc_attr_e( 'Visit Ruben Woudsma’s website (opens in a new tab)', 'bulk-password-reset' ); ?>">
-						<img class="bpr-logo" src="<?php echo esc_url( $logo ); ?>" width="96" height="96" alt="<?php esc_attr_e( 'Ruben Woudsma', 'bulk-password-reset' ); ?>">
-					</a>
+					<img class="bpr-plugin-icon" src="<?php echo esc_url( $icon ); ?>" width="64" height="64" alt="">
 					<div>
 						<p class="bpr-eyebrow"><?php esc_html_e( 'A WordPress tool by Ruben Woudsma', 'bulk-password-reset' ); ?></p>
 						<h1><?php esc_html_e( 'Bulk Password Reset', 'bulk-password-reset' ); ?></h1>
@@ -66,13 +75,23 @@ final class View {
 					<?php
 					if ( $active && ! $owned ) {
 						?>
-						<section class="bpr-card bpr-card-body"><h2><?php esc_html_e( 'A reset is already in progress', 'bulk-password-reset' ); ?></h2><p><?php esc_html_e( 'Another administrator has an active preview or job on this site. They must finish or cancel it, or let it expire after 48 hours.', 'bulk-password-reset' ); ?></p></section>
+							<section class="bpr-card bpr-card-body"><h2><?php esc_html_e( 'A reset is already in progress', 'bulk-password-reset' ); ?></h2><p><?php esc_html_e( 'Another administrator has an active password reset on this site. They must finish or cancel it, or let it expire after 48 hours.', 'bulk-password-reset' ); ?></p></section>
 						<?php
 					} elseif ( $active && $owned ) {
 						$this->job( $job );
+					} elseif ( $show_report ) {
+						$this->summary( $job );
+						?>
+						<div class="bpr-result-actions">
+							<a class="button button-primary bpr-button" href="<?php echo esc_url( add_query_arg( 'view', 'new', Admin::url() ) ); ?>"><?php esc_html_e( 'Start a new reset', 'bulk-password-reset' ); ?></a>
+							<p class="bpr-help"><?php esc_html_e( 'These results remain available until you create a new preview.', 'bulk-password-reset' ); ?></p>
+						</div>
+						<?php
 					} else {
 						if ( $owned ) {
-							$this->summary( $job );
+							?>
+							<p class="bpr-help"><a href="<?php echo esc_url( Admin::url() ); ?>"><?php esc_html_e( 'View previous reset results', 'bulk-password-reset' ); ?></a>. <?php esc_html_e( 'Creating a new preview replaces the previous results.', 'bulk-password-reset' ); ?></p>
+							<?php
 						}
 						$this->form();
 					}
@@ -91,8 +110,10 @@ final class View {
 						<details class="bpr-details"><summary><?php esc_html_e( 'Which accounts are protected?', 'bulk-password-reset' ); ?></summary><p><?php esc_html_e( 'Your own account, administrators, and accounts that can manage settings or edit users are always excluded.', 'bulk-password-reset' ); ?></p></details>
 					</section>
 					<section class="bpr-card bpr-card-body bpr-author">
-						<p class="bpr-eyebrow"><?php esc_html_e( 'Made by', 'bulk-password-reset' ); ?></p>
-						<h2>Ruben Woudsma</h2>
+						<div class="bpr-author-heading">
+							<img class="bpr-author-logo" src="<?php echo esc_url( $logo ); ?>" width="56" height="56" alt="">
+							<div><p class="bpr-eyebrow"><?php esc_html_e( 'Made by', 'bulk-password-reset' ); ?></p><h2>Ruben Woudsma</h2></div>
+						</div>
 						<p><?php esc_html_e( 'Useful tools, shared freely. This plugin is open source, with no paid tier or total user limit.', 'bulk-password-reset' ); ?></p>
 						<a class="bpr-author-link" href="https://rubenwoudsma.nl/" target="_blank" rel="noopener noreferrer">rubenwoudsma.nl <span class="dashicons dashicons-external" aria-hidden="true"></span><span class="screen-reader-text"><?php esc_html_e( '(opens in a new tab)', 'bulk-password-reset' ); ?></span></a>
 					</section>
@@ -113,7 +134,7 @@ final class View {
 		$labels = array(
 			1 => __( 'Choose recipients', 'bulk-password-reset' ),
 			2 => __( 'Review & confirm', 'bulk-password-reset' ),
-			3 => __( 'Send & follow progress', 'bulk-password-reset' ),
+			3 => __( 'Send & review results', 'bulk-password-reset' ),
 		);
 		?>
 		<ol class="bpr-steps" aria-label="<?php esc_attr_e( 'Reset workflow steps', 'bulk-password-reset' ); ?>">
@@ -138,7 +159,7 @@ final class View {
 			<?php wp_nonce_field( 'bpr_preview' ); ?>
 			<section class="bpr-form-section">
 				<div class="bpr-section-heading"><span class="bpr-section-number" aria-hidden="true">01</span><h2><?php esc_html_e( 'Choose recipients', 'bulk-password-reset' ); ?></h2></div>
-				<p class="bpr-section-description"><?php esc_html_e( 'Select one or more roles. We’ll check every account before processing.', 'bulk-password-reset' ); ?></p>
+				<p class="bpr-section-description"><?php esc_html_e( 'Select one or more user roles. Each recipient is checked before processing.', 'bulk-password-reset' ); ?></p>
 				<fieldset class="bpr-roles">
 					<legend class="screen-reader-text"><?php esc_html_e( 'User roles', 'bulk-password-reset' ); ?></legend>
 					<?php foreach ( wp_roles()->get_names() as $slug => $name ) : ?>
@@ -149,7 +170,7 @@ final class View {
 						<label class="bpr-role"><input type="checkbox" name="roles[]" value="<?php echo esc_attr( $slug ); ?>"><span><?php echo esc_html( translate_user_role( $name ) ); ?></span></label>
 					<?php endforeach; ?>
 				</fieldset>
-				<p class="bpr-help"><?php esc_html_e( 'Want to choose individual accounts?', 'bulk-password-reset' ); ?> <a href="<?php echo esc_url( admin_url( 'users.php' ) ); ?>"><?php esc_html_e( 'Select them on the Users screen.', 'bulk-password-reset' ); ?></a></p>
+				<p class="bpr-help"><?php esc_html_e( 'Want to choose individual recipients?', 'bulk-password-reset' ); ?> <a href="<?php echo esc_url( admin_url( 'users.php' ) ); ?>"><?php esc_html_e( 'Select them on the Users screen.', 'bulk-password-reset' ); ?></a></p>
 			</section>
 			<section class="bpr-form-section">
 				<div class="bpr-section-heading"><span class="bpr-section-number" aria-hidden="true">02</span><h2><?php esc_html_e( 'Choose how to reset', 'bulk-password-reset' ); ?></h2></div>
@@ -157,7 +178,7 @@ final class View {
 					<legend class="screen-reader-text"><?php esc_html_e( 'Reset mode', 'bulk-password-reset' ); ?></legend>
 					<label class="bpr-mode">
 						<input type="radio" name="mode" value="link" checked>
-						<span class="bpr-mode-content"><span class="bpr-mode-title"><?php esc_html_e( 'Send reset links', 'bulk-password-reset' ); ?> <span class="bpr-recommended"><?php esc_html_e( 'Recommended', 'bulk-password-reset' ); ?></span></span><span class="bpr-mode-description"><?php esc_html_e( 'Email each user a secure link to choose a new password. Current passwords and sessions keep working until they change it.', 'bulk-password-reset' ); ?></span></span>
+						<span class="bpr-mode-content"><span class="bpr-mode-title"><?php esc_html_e( 'Send reset links', 'bulk-password-reset' ); ?> <span class="bpr-recommended"><?php esc_html_e( 'Recommended', 'bulk-password-reset' ); ?></span></span><span class="bpr-mode-description"><?php esc_html_e( 'Email each recipient a secure link to choose a new password. Existing passwords and browser sessions keep working until they change it.', 'bulk-password-reset' ); ?></span></span>
 					</label>
 					<label class="bpr-mode bpr-mode--immediate">
 						<input type="radio" name="mode" value="invalidate">
@@ -167,7 +188,7 @@ final class View {
 			</section>
 			<section class="bpr-form-section">
 				<div class="bpr-section-heading"><span class="bpr-section-number" aria-hidden="true">03</span><h2><label for="bpr-note"><?php esc_html_e( 'Add a personal note', 'bulk-password-reset' ); ?></label> <span class="bpr-optional"><?php esc_html_e( 'Optional', 'bulk-password-reset' ); ?></span></h2></div>
-				<p id="bpr-note-help" class="bpr-section-description"><?php esc_html_e( 'Give your users a little context. This plain-text note appears in their reset email.', 'bulk-password-reset' ); ?></p>
+				<p id="bpr-note-help" class="bpr-section-description"><?php esc_html_e( 'Add context for your recipients. This plain-text note appears in their reset email.', 'bulk-password-reset' ); ?></p>
 				<textarea id="bpr-note" name="note" rows="4" maxlength="2000" aria-describedby="bpr-note-help"></textarea>
 			</section>
 			<div class="bpr-form-actions">
@@ -191,7 +212,7 @@ final class View {
 			<div class="bpr-card-body">
 				<?php if ( 'ready' === $job['status'] ) : ?>
 					<h2><?php esc_html_e( 'Recipient preview', 'bulk-password-reset' ); ?></h2>
-					<p class="bpr-section-description"><?php esc_html_e( 'Showing the first 20 candidates. Protected accounts are included in the candidate count and will be skipped. Roles and permissions are checked again during processing; accounts registered after the preview are excluded.', 'bulk-password-reset' ); ?></p>
+					<p class="bpr-section-description"><?php esc_html_e( 'Showing the first 20 selected users. The preview count includes protected accounts, which will be skipped. Roles and permissions are checked again before sending; users registered after the preview are excluded.', 'bulk-password-reset' ); ?></p>
 					<?php $this->recipients( $job ); ?>
 				<?php else : ?>
 					<h2><?php esc_html_e( 'Ready for the next batch', 'bulk-password-reset' ); ?></h2>
@@ -203,7 +224,7 @@ final class View {
 				<?php if ( $job['note'] ) : ?>
 					<div class="bpr-note-preview"><h3><?php esc_html_e( 'Your email note', 'bulk-password-reset' ); ?></h3><p><?php echo esc_html( $job['note'] ); ?></p></div>
 				<?php endif; ?>
-				<p class="bpr-help"><?php esc_html_e( 'Each request processes up to 20 candidates. Further batches run when you click Continue. You can return to this job within 48 hours.', 'bulk-password-reset' ); ?></p>
+				<p class="bpr-help"><?php esc_html_e( 'Each request processes up to 20 selected users. Further batches run when you click Continue. You can resume this reset within 48 hours.', 'bulk-password-reset' ); ?></p>
 			</div>
 			<form class="bpr-confirm-form" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post">
 				<input type="hidden" name="action" value="bpr_process">
@@ -259,7 +280,7 @@ final class View {
 			'cancelled' => __( 'Cancelled', 'bulk-password-reset' ),
 		);
 		$stats                = array(
-			'total'       => __( 'Candidates at preview', 'bulk-password-reset' ),
+			'total'       => __( 'Selected users at preview', 'bulk-password-reset' ),
 			'sent'        => __( 'Emails accepted', 'bulk-password-reset' ),
 			'failed'      => __( 'Failed', 'bulk-password-reset' ),
 			'skipped'     => __( 'Skipped', 'bulk-password-reset' ),
@@ -267,28 +288,29 @@ final class View {
 			'invalidated' => __( 'Passwords invalidated', 'bulk-password-reset' ),
 		);
 		$counts               = $job;
+		$expired              = $job['expires'] <= time() && in_array( $job['status'], array( 'ready', 'running' ), true );
 		$counts['uncertain'] += $job['in_flight'] ? 1 : 0;
 		$review_ids           = array_unique( array_merge( $job['failed_ids'], $job['uncertain_ids'], $job['in_flight'] ? array( $job['in_flight'] ) : array() ) );
 		if ( 'ready' === $job['status'] && $job['expires'] > time() ) {
 			?>
 			<section class="bpr-card bpr-preview-overview">
 				<div><h2><?php esc_html_e( 'Awaiting confirmation', 'bulk-password-reset' ); ?></h2><p><?php esc_html_e( 'Nothing has been sent or changed. Review the recipients and confirm to begin.', 'bulk-password-reset' ); ?></p></div>
-				<div class="bpr-preview-count"><strong><?php echo esc_html( number_format_i18n( $job['total'] ) ); ?></strong><span><?php esc_html_e( 'Candidates at preview', 'bulk-password-reset' ); ?></span></div>
+				<div class="bpr-preview-count"><strong><?php echo esc_html( number_format_i18n( $job['total'] ) ); ?></strong><span><?php esc_html_e( 'Selected users at preview', 'bulk-password-reset' ); ?></span></div>
 			</section>
 			<?php
 			return;
 		}
 		?>
 		<section class="bpr-card bpr-report">
-			<div class="bpr-report-heading"><h2><?php echo esc_html( $job['expires'] <= time() ? __( 'Expired', 'bulk-password-reset' ) : $labels[ $job['status'] ] ); ?></h2><span class="bpr-status-dot" aria-hidden="true"></span></div>
+			<div class="bpr-report-heading"><h2><?php echo esc_html( $expired ? __( 'Expired', 'bulk-password-reset' ) : $labels[ $job['status'] ] ); ?></h2><span class="bpr-status-dot" aria-hidden="true"></span></div>
 			<dl class="bpr-stats">
 				<?php foreach ( $stats as $key => $label ) : ?>
 					<div class="bpr-stat" data-bpr-stat="<?php echo esc_attr( $key ); ?>"><dt><?php echo esc_html( $label ); ?></dt><dd><?php echo esc_html( number_format_i18n( $counts[ $key ] ) ); ?></dd></div>
 				<?php endforeach; ?>
 			</dl>
-			<div class="bpr-report-footnote"><p><?php esc_html_e( 'Accepted for sending does not guarantee delivery. Interrupted accounts are not retried automatically; review them separately. No passwords or reset links are stored in this report.', 'bulk-password-reset' ); ?></p></div>
+			<div class="bpr-report-footnote"><p><?php esc_html_e( 'Accepted for sending does not guarantee delivery. Users with an unknown outcome are not retried automatically; review them separately. No passwords or reset links are stored in this report.', 'bulk-password-reset' ); ?></p></div>
 			<?php if ( $review_ids ) : ?>
-				<div class="bpr-review-accounts"><h3><?php esc_html_e( 'Accounts to review', 'bulk-password-reset' ); ?></h3><p><?php esc_html_e( 'Up to 100 failures and 100 interrupted outcomes are listed here.', 'bulk-password-reset' ); ?></p><ul>
+				<div class="bpr-review-accounts"><h3><?php esc_html_e( 'Users to review', 'bulk-password-reset' ); ?></h3><p><?php esc_html_e( 'Up to 100 users with failed resets and 100 users with unknown outcomes are listed here.', 'bulk-password-reset' ); ?></p><ul>
 					<?php foreach ( $review_ids as $review_id ) : ?>
 						<?php $user = get_user_by( 'id', $review_id ); ?>
 						<li><a href="<?php echo esc_url( get_edit_user_link( $review_id ) ); ?>"><?php echo esc_html( $user ? $user->user_login : (string) $review_id ); ?></a> (<?php echo esc_html( (string) $review_id ); ?>)</li>

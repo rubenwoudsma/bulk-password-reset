@@ -4,7 +4,7 @@ Tags: password reset, users, security, bulk
 Requires at least: 6.8
 Tested up to: 7.1
 Requires PHP: 8.2
-Stable tag: 2.0.0
+Stable tag: 2.0.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -27,7 +27,7 @@ Immediate invalidation cannot be undone. If email fails, the password still chan
 
 * Role selection, including custom roles, or individually selected users.
 * A preview and explicit confirmation before a reset starts.
-* Batches of up to 20 candidates per request, with no total user limit or paid tier. Click Continue to run each next batch; no background worker or cron is required.
+* Batches of up to 20 selected users per request, with no total user limit or paid tier. Click Continue to run each next batch; no background worker or cron is required.
 * Resume a job for 48 hours. One active job per site; only its originating administrator can run or cancel it.
 * Optional plain-text email note and user-locale support.
 * A light, responsive admin layout with clear steps, reset-mode cards, and progress reports.
@@ -47,7 +47,7 @@ Only super administrators can use this tool on multisite. Selection is limited t
 
 WordPress sends mail to the account's existing email address through your site's mail configuration. The plugin stores one site's latest job, its administrator ID, selected roles or user IDs, optional note, progress and aggregate counts in a non-autoloaded database option. It does not store plaintext passwords, reset links, or reset keys in job data or public log files. WordPress stores the hashed reset key in its own user record.
 
-Jobs expire after 48 hours and cannot then be resumed. The report also retains up to 100 failed and 100 interrupted account IDs for review. Expiration does not automatically erase the latest report; it is replaced by the next preview or deleted on uninstall. Existing log files from older plugin versions are not automatically removed; administrators should inspect and remove them. No data is sent to the plugin author.
+An unfinished reset expires after 48 hours and cannot then be resumed. The latest results retain up to 100 user IDs with failed resets and 100 with unknown outcomes for review. Completed and cancelled results keep their status after the resume deadline. Results are replaced by the next preview or deleted on uninstall; opening the chooser does not erase them. Existing log files from older plugin versions are not automatically removed; administrators should inspect and remove them. No data is sent to the plugin author.
 
 == Installation ==
 
@@ -56,6 +56,7 @@ Jobs expire after 48 hours and cannot then be resumed. The report also retains u
 3. Activate the plugin and open Users > Bulk Password Reset.
 4. Select roles and a reset mode, add an optional note, and review the preview.
 5. Confirm and start. Use Continue for each remaining batch, or cancel remaining work.
+6. Review the results on step 3. Choose Start a new reset to return to the chooser; the previous results remain available until you create another preview.
 
 Requires WordPress 6.8 or newer and PHP 8.2 or newer.
 
@@ -63,6 +64,7 @@ Requires WordPress 6.8 or newer and PHP 8.2 or newer.
 
 1. Select recipient roles, choose the reset mode, and add an optional email note.
 2. Review candidate accounts and explicitly confirm before starting a reset.
+3. Review the completed reset on step 3, then choose Start a new reset when ready.
 
 == Frequently Asked Questions ==
 
@@ -92,6 +94,13 @@ The old settings, including stored shared passwords and custom keys, are deleted
 
 == Changelog ==
 
+= 2.0.1 =
+* Keep completed, cancelled and expired reset results on step 3, with an explicit Start a new reset action and a link back to the previous results.
+* Finish exact 20-user batch multiples without an empty Continue request, using bounded look-ahead without changing the next recipient.
+* Use the plugin icon in the header and move the Ruben Woudsma logo into the Made by card; both images are bundled locally.
+* Clarify selected users, recipients, accounts and administrator terminology, and refresh the translation template.
+* Keep completed and cancelled statuses after the 48-hour resume deadline.
+
 = 2.0.0 =
 * Rebuild the plugin's reset flow with authorization, per-user permissions, nonces, confirmation, and protected accounts.
 * Replace the vulnerable legacy bulk-action path associated with CVE-2026-14873.
@@ -104,6 +113,9 @@ The old settings, including stored shared passwords and custom keys, are deleted
 * Last historical WordPress.org release. Do not use for new installations.
 
 == Upgrade Notice ==
+
+= 2.0.1 =
+Improves completion screens, batch boundaries, branding and wording. No reset settings or stored job data need to be migrated.
 
 = 2.0.0 =
 Security rebuild replacing the vulnerable legacy reset path. Requires PHP 8.2 and WordPress 6.8. Old settings are removed; review both reset modes before use.

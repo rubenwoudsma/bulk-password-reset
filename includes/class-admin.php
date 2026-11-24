@@ -224,6 +224,8 @@ final class Admin {
 	 */
 	public function render() {
 		$this->authorize();
-		( new View( $this->jobs->current() ) )->render();
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only navigation; starting a preview still requires its authorized POST and nonce.
+		$start_new = isset( $_GET['view'] ) && is_string( $_GET['view'] ) && 'new' === sanitize_key( wp_unslash( $_GET['view'] ) );
+		( new View( $this->jobs->current(), $start_new ) )->render();
 	}
 }
