@@ -1,5 +1,5 @@
 === Bulk Password Reset ===
-Contributors: rubenwoudsma
+Contributors: rubenw
 Tags: password reset, users, security, bulk
 Requires at least: 6.8
 Tested up to: 7.1
