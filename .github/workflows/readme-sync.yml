@@ -1,4 +1,5 @@
 name: Sync published readme
+run-name: "Contributor-only fix for SVN 2.0.0 — ${{ inputs.dry_run && 'preview' || 'apply' }}"
 
 on:
   workflow_dispatch:
@@ -17,7 +18,7 @@ concurrency:
 
 jobs:
   sync:
-    if: github.repository == 'rubenwoudsma/bulk-password-reset' && github.ref == 'refs/heads/master'
+    if: github.repository == 'rubenwoudsma/bulk-password-reset' && github.ref == 'refs/heads/maintenance/contributor-only-svn-2.0.0'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment: wordpress-org
@@ -25,7 +26,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Sync only an existing matching stable release
+      - name: Preview or apply the authorized contributor-only correction
         env:
           DRY_RUN: ${{ inputs.dry_run }}
           DEPLOY_ENABLED: ${{ vars.WPORG_DEPLOY_ENABLED }}
@@ -36,4 +37,21 @@ jobs:
             echo 'WordPress.org publication is not enabled.'
             exit 1
           fi
-          bash .github/scripts/sync-readme.sh
+          bash -n .github/scripts/sync-readme.sh
+          bash .github/scripts/sync-readme.sh | tee contributor-fix.log
+          {
+            echo '### Contributor-only SVN correction'
+            echo 'Targets: trunk/readme.txt and tags/2.0.0/readme.txt only.'
+            echo 'Stable tag remains 2.0.0. No plugin code, assets or release tags are changed.'
+            echo "Dry run: $DRY_RUN"
+            echo '```text'
+            cat contributor-fix.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: contributor-only-svn-log
+          path: contributor-fix.log
+          if-no-files-found: warn
+          retention-days: 14

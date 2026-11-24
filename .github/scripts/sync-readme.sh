@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Inspired by Joost de Valk's readme-sync workflow; only existing readmes change.
+# Isolated, explicitly authorized contributor correction for SVN 2.0.0.
 set -euo pipefail
 
 read_tag() {
   awk 'tolower($0) ~ /^stable tag:[[:space:]]*/ { sub(/^[^:]*:[[:space:]]*/, ""); sub(/[[:space:]]*$/, ""); print }' "$1"
 }
 
-release=$(read_tag readme.txt)
+release=2.0.0
 if [[ ! "$release" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo 'Expected exactly one numeric Stable tag.' >&2
   exit 1
@@ -30,9 +30,32 @@ for target in "${targets[@]}"; do
   fi
 done
 
-for target in "${targets[@]}"; do
-  cp -- readme.txt "$target"
-done
+# Fail if either remote file changed since the reviewed two-line patch.
+# Never copy master's 2.0.1 readme into the published 2.0.0 version.
+python3 - "${targets[@]}" <<'PY'
+import hashlib
+from pathlib import Path
+import sys
+
+before = '90db171a6ffe34aadcb871a08dec8cf867cc1c459cef09b178fa13e59946e604'
+after = '20908b2932039e3ae2c0edc5bdaa2c776ec902229d9e402b1efdbb247fd70c3b'
+updates = []
+for argument in sys.argv[1:]:
+    target = Path(argument)
+    original = target.read_bytes()
+    digest = hashlib.sha256(original).hexdigest()
+    if digest == after:
+        continue
+    if digest != before:
+        raise SystemExit('Published readme differs from the reviewed patch; no commit is permitted.')
+    changed = original.replace(b'Contributors: rubenwoudsma\n', b'Contributors: rubenw\n', 1)
+    if hashlib.sha256(changed).hexdigest() != after:
+        raise SystemExit('Contributor-only transformation did not match the approved content.')
+    updates.append((target, changed))
+for target, changed in updates:
+    target.write_bytes(changed)
+print('Both 2.0.0 readmes match the reviewed contributor-only content.')
+PY
 
 if [[ -z "$(svn status "$checkout")" ]]; then
   echo 'The published readmes already match.'
@@ -49,4 +72,4 @@ fi
 : "${SVN_PASSWORD:?Configure SVN_PASSWORD}"
 svn commit "${targets[@]}" --non-interactive --no-auth-cache \
   --username "$SVN_USERNAME" --password "$SVN_PASSWORD" \
-  --message "Update Bulk Password Reset $release readme"
+  --message "Correct Bulk Password Reset $release contributor username to rubenw"
