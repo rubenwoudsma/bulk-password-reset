@@ -51,7 +51,7 @@ final class Service {
 			return new \WP_Error( 'forbidden', __( 'You cannot perform bulk password resets.', 'bulk-password-reset' ) );
 		}
 		if ( ( empty( $roles ) && empty( $ids ) ) || ( ! empty( $roles ) && ! empty( $ids ) ) ) {
-			return new \WP_Error( 'selection', __( 'Select at least one role or one user.', 'bulk-password-reset' ) );
+			return new \WP_Error( 'selection', __( 'Select at least one user role or recipient.', 'bulk-password-reset' ) );
 		}
 		foreach ( $roles as $role ) {
 			if ( ! is_string( $role ) || ! isset( wp_roles()->roles[ $role ] ) ) {
@@ -60,7 +60,7 @@ final class Service {
 		}
 		foreach ( $ids as $id ) {
 			if ( ! is_scalar( $id ) || ! ctype_digit( (string) $id ) || (int) $id < 1 ) {
-				return new \WP_Error( 'selection', __( 'The user selection is invalid.', 'bulk-password-reset' ) );
+				return new \WP_Error( 'selection', __( 'The recipient selection is invalid.', 'bulk-password-reset' ) );
 			}
 		}
 		$highest = get_users(

@@ -34,6 +34,7 @@ class GithubReleaseTest(unittest.TestCase):
                           "== Upgrade Notice ==\n= 2.0.0 =\nReview settings.\n",
             "uninstall.php": "<?php // cleanup\n", "LICENSE": "GPL-2.0-or-later\n",
             "assets/admin.css": ".plugin {}\n", "assets/ruben-woudsma-logo.png": "fixture-logo",
+            "assets/plugin-icon.png": "fixture-plugin-icon",
             "includes/class-service.php": "<?php // service\n", "languages/bulk-password-reset.pot": "fixture catalog\n",
         }
         for name, value in values.items():
