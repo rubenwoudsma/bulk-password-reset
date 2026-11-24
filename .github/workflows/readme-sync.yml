@@ -26,19 +26,31 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Ensure SVN is available
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v svn >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install --yes subversion
+          fi
+          svn --version --quiet
       - name: Preview or apply the authorized contributor-only correction
+        shell: bash
         env:
           DRY_RUN: ${{ inputs.dry_run }}
           DEPLOY_ENABLED: ${{ vars.WPORG_DEPLOY_ENABLED }}
           SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
           SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
         run: |
+          set -euo pipefail
           if [ "$DRY_RUN" != true ] && [ "$DEPLOY_ENABLED" != true ]; then
             echo 'WordPress.org publication is not enabled.'
             exit 1
           fi
           bash -n .github/scripts/sync-readme.sh
           bash .github/scripts/sync-readme.sh | tee contributor-fix.log
+          test -s contributor-fix.log
           {
             echo '### Contributor-only SVN correction'
             echo 'Targets: trunk/readme.txt and tags/2.0.0/readme.txt only.'
