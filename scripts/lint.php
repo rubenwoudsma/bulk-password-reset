@@ -1,5 +1,15 @@
 <?php
-/** Syntax-check every first-party PHP file with the current interpreter. */
+/**
+ * First-party PHP syntax checks for development and CI.
+ *
+ * Usage: php scripts/lint.php
+ * Runs the current PHP interpreter's syntax check on repository PHP files,
+ * excluding vendor, build, dist, and Git internals. Exits nonzero if any fail.
+ * This command-line development tool is excluded from the plugin package.
+ *
+ * @package BulkPasswordReset
+ */
+
 $root = dirname(__DIR__);
 $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS));
 $failed = false;

@@ -19,7 +19,7 @@ composer package
 
 The package script includes only explicitly listed runtime files, the plugin readme, license, and translations. It fails on inconsistent release metadata. Build output is `dist/bulk-password-reset-VERSION.zip`.
 
-WordPress Coding Standards applies to all shipped PHP. A single filename exception preserves the historical `bulk_password_reset.php` activation basename. Tests and build scripts use ordinary PHP style and are syntax-checked separately. PHPCompatibilityWP supplements syntax tests; it is not proof of compatibility with every future PHP version.
+WordPress Coding Standards applies to all shipped PHP. A single filename exception preserves the historical `bulk_password_reset.php` activation basename. Tests and build scripts use ordinary PHP style and are syntax-checked separately. The PHP tools in `scripts/` have file DocBlocks describing their purpose, usage, outputs and package boundary; they do not need WordPress plugin activation headers. PHPCompatibilityWP supplements syntax tests; it is not proof of compatibility with every future PHP version.
 
 Composer resolves development dependencies for PHP 8.2.0 through `config.platform.php`, including when updating the lock file on a newer interpreter. Keep that target aligned with the plugin's minimum supported PHP version. CI also runs `composer check-platform-reqs` against each actual interpreter, so the resolution target does not replace runtime verification.
 
@@ -40,7 +40,7 @@ composer test
 
 The test suite intercepts WordPress mail in memory. Its fixtures use `.test` addresses. It covers permission denial, per-user policy, privileged accounts, CSRF protection, POST-only mutation, job ownership, confirmation, reset-key hashing/single use/expiry, both modes, sessions, mail failures, durable progress, interrupted work, locks, cancellation, role changes, custom roles, and more than 100 users. Multisite-specific tests run in the multisite matrix entry.
 
-CI installs WordPress with MySQL 8.0. The matrix covers minimum WordPress 6.8/PHP 8.2, latest WordPress on PHP 8.2–8.5, and latest WordPress multisite on PHP 8.4. The local verification report records what actually ran locally; a workflow definition alone is not a completed GitHub run.
+CI installs WordPress with MySQL 8.0. The matrix covers minimum WordPress 6.8/PHP 8.2, latest WordPress on PHP 8.2–8.5, and latest WordPress multisite on PHP 8.4. Inspect each run's generated report for what actually ran; a workflow definition alone is not a completed GitHub run. [Verification and reports](docs/VERIFICATION.md) describes the evidence and manual acceptance process without requiring a new document per release.
 
 ## GitHub Actions results overview
 

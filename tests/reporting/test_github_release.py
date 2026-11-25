@@ -18,6 +18,8 @@ SPEC = importlib.util.spec_from_file_location("github_release", Path(__file__).r
 RELEASE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(RELEASE)
 SHA = "a" * 40
+# Deliberately fictional test data; independent of the plugin's release version.
+FIXTURE_VERSION = "9.8.7"
 
 
 class GithubReleaseTest(unittest.TestCase):
@@ -28,10 +30,10 @@ class GithubReleaseTest(unittest.TestCase):
         self.workspace = self.root / "workspace"
         self.workspace.mkdir()
         values = {
-            "bulk_password_reset.php": "<?php\n/**\n * Version: 2.0.0\n */\n",
-            "readme.txt": "Stable tag: 2.0.0\nRequires at least: 6.8\nRequires PHP: 8.2\n\n== Changelog ==\n\n"
-                          "= 2.0.0 =\n* Secure reset links.\n* Protect privileged accounts.\n\n= 1.3.3 =\n* Historical release.\n\n"
-                          "== Upgrade Notice ==\n= 2.0.0 =\nReview settings.\n",
+            "bulk_password_reset.php": f"<?php\n/**\n * Version: {FIXTURE_VERSION}\n */\n",
+            "readme.txt": f"Stable tag: {FIXTURE_VERSION}\nRequires at least: 6.8\nRequires PHP: 8.2\n\n== Changelog ==\n\n"
+                          f"= {FIXTURE_VERSION} =\n* Secure reset links.\n* Protect privileged accounts.\n\n= 9.8.6 =\n* Historical release.\n\n"
+                          f"== Upgrade Notice ==\n= {FIXTURE_VERSION} =\nReview settings.\n",
             "uninstall.php": "<?php // cleanup\n", "LICENSE": "GPL-2.0-or-later\n",
             "assets/admin.css": ".plugin {}\n", "assets/ruben-woudsma-logo.png": "fixture-logo",
             "assets/plugin-icon.png": "fixture-plugin-icon",
@@ -41,18 +43,18 @@ class GithubReleaseTest(unittest.TestCase):
             path = self.workspace / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(value, encoding="utf-8")
-        self.input = self.workspace / "release-input/bulk-password-reset-2.0.0.zip"
+        self.input = self.workspace / f"release-input/bulk-password-reset-{FIXTURE_VERSION}.zip"
         self.input.parent.mkdir()
         with zipfile.ZipFile(self.input, "w") as archive:
             for name in values:
                 archive.write(self.workspace / name, "bulk-password-reset/" + name)
         self.env = patch.dict(os.environ, {"GITHUB_SHA": SHA, "GITHUB_REPOSITORY": RELEASE.REPOSITORY,
-                              "GITHUB_EVENT_NAME": "push", "GITHUB_REF": "refs/tags/2.0.0",
+                              "GITHUB_EVENT_NAME": "push", "GITHUB_REF": f"refs/tags/{FIXTURE_VERSION}",
                               "GITHUB_STEP_SUMMARY": str(self.root / "summary.md")})
         self.env.start()
         self.addCleanup(self.env.stop)
         with contextlib.redirect_stdout(io.StringIO()):
-            self.data = RELEASE.prepare(self.workspace, "2.0.0")
+            self.data = RELEASE.prepare(self.workspace, FIXTURE_VERSION)
         self.output = self.workspace / "github-release"
         self.notes = (self.output / "notes.md").read_text(encoding="utf-8")
 
@@ -67,17 +69,17 @@ class GithubReleaseTest(unittest.TestCase):
         self.assertEqual(self.data, RELEASE.candidate(self.output))
 
     def test_mismatched_version_or_empty_changelog_is_rejected(self):
-        for version in ("v2.0.0", "../../outside", "2.0.0\n", "2.0.1"):
+        for version in (f"v{FIXTURE_VERSION}", "../../outside", FIXTURE_VERSION + "\n", "9.8.8"):
             with self.subTest(version=version), self.assertRaises(ValueError):
                 RELEASE.prepare(self.workspace, version)
         with self.assertRaises(ValueError):
-            RELEASE.changes("== Changelog ==\n= 2.0.0 =\n\n= 1.3.3 =\n* old", "2.0.0")
+            RELEASE.changes(f"== Changelog ==\n= {FIXTURE_VERSION} =\n\n= 9.8.6 =\n* old", FIXTURE_VERSION)
 
     def test_ci_package_cannot_contain_development_or_changed_runtime_files(self):
         with zipfile.ZipFile(self.input, "a") as archive:
             archive.writestr("bulk-password-reset/tests/test.php", "development-only")
         with self.assertRaisesRegex(ValueError, "differs from the reviewed runtime"):
-            RELEASE.prepare(self.workspace, "2.0.0")
+            RELEASE.prepare(self.workspace, FIXTURE_VERSION)
 
     def test_changed_notes_or_checksums_cannot_be_published(self):
         (self.output / "notes.md").write_text("different notes", encoding="utf-8")
@@ -89,7 +91,7 @@ class GithubReleaseTest(unittest.TestCase):
             RELEASE.candidate(self.output)
 
     def draft(self):
-        return {"tag_name": "2.0.0", "draft": True, "body": self.notes,
+        return {"tag_name": FIXTURE_VERSION, "draft": True, "body": self.notes,
                 "html_url": "https://github.com/example/release"}
 
     def exercise(self, existing=None, *, tag_sha=SHA, fail_upload=False, bad_assets=False, alternate_zip=False):

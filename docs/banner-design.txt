@@ -14,12 +14,11 @@ WordPress.org does not use a Retina banner on its own. The old JPG is removed
 to avoid competing files for the standard banner size. Directory artwork is
 outside the runtime ZIP and is uploaded only through an authorized SVN release.
 
-Version choice:
-The listing copy and banner accompany the still-unpublished 2.0.1 maintenance
-candidate. No 2.0.2 bump is needed, and the published 2.0.0 source/tag is unchanged.
-SVN assets are not intrinsically tied to the plugin version; keeping them with
-2.0.1 is a release choice, not a WordPress.org requirement. Merging the PR does
-not publish a GitHub Release or upload to SVN.
+Publication:
+The listing copy and banner shipped with the 2.0.1 maintenance release. SVN
+assets are not intrinsically tied to a plugin version. Future artwork changes
+still require an authorized upload; editing this design brief does not publish
+a GitHub Release or upload to SVN.
 
 Creation and export:
 Created on 25 November 2026 with the built-in image generator, using the existing
