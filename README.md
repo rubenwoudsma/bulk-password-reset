@@ -47,4 +47,4 @@ See [release setup](docs/RELEASING.md), [development and tests](CONTRIBUTING.md)
 
 ## License
 
-GPL-2.0-or-later. Original plugin by Ruben Woudsma; historical inspiration included Joost de Valk and Pressography. The inherited WordPress.org banner is retained from the original repository. The plugin icon source is in `docs/icon-source.svg`; author-logo attribution is in `assets/README.md`. See `LICENSE` and the historical attribution in Git history.
+GPL-2.0-or-later. Original plugin by Ruben Woudsma; historical inspiration included Joost de Valk and Pressography. The WordPress.org banner illustrates the current reset-link workflow; its design brief is in `docs/banner-design.txt`. The plugin icon source is in `docs/icon-source.svg`; author-logo attribution is in `assets/README.md`. See `LICENSE` and the historical attribution in Git history.

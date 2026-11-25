@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Bulk Password Reset
  * Plugin URI: https://github.com/rubenwoudsma/bulk-password-reset
- * Description: Preview and perform bulk password resets by role or selected users, using secure WordPress reset links.
+ * Description: Bulk reset WordPress user passwords by role or selection. Preview first, send secure reset links, or invalidate passwords. Always free.
  * Version: 2.0.1
  * Requires at least: 6.8
  * Requires PHP: 8.2
