@@ -1,6 +1,6 @@
 # Security and modernization review
 
-Prepared 23 November 2026. This is an engineering review and tested remediation candidate, not an independent penetration-test certificate or an advisory-provider approval.
+This documents the security rewrite first published in 2.0.0 and retained in later releases. It is an engineering review, not an independent penetration-test certificate or an advisory-provider approval. See the [security policy](../SECURITY.md) for supported releases.
 
 ## Baselines examined
 
@@ -30,7 +30,7 @@ Privileged accounts and the initiating administrator are always excluded. There 
 
 Multisite requires a super administrator and site membership for targets. This intentionally imposes a stricter boundary than ordinary single-site access because WordPress stores passwords at network level.
 
-Jobs are owned by an administrator and site, expire after 48 hours, and require fresh authorization to resume. One job can be active per site. The job option is not autoloaded. It contains role/user selection, a plain-text note, progress, aggregate counts, and bounded failed/interrupted account IDs. It contains no reset links or plaintext credentials. Only the latest report is retained, until replaced or uninstalled; expiration stops execution but does not itself erase the report.
+Jobs are owned by an administrator and site and require fresh authorization to resume. Unfinished jobs expire after 48 hours; completed and cancelled reports retain their terminal status. One job can be active per site. The job option is not autoloaded. It contains role/user selection, a plain-text note, progress, aggregate counts, and bounded failed/interrupted account IDs. It contains no reset links or plaintext credentials. Only the latest report is retained, until replaced or uninstalled; expiration stops execution but does not itself erase the report.
 
 ## Limits that require operational understanding
 
@@ -43,6 +43,6 @@ Jobs are owned by an administrator and site, expire after 48 hours, and require 
 * Locks serialize this plugin's jobs on a site. Another site on a multisite network, another plugin, or a concurrent WordPress recovery request can independently affect a shared account.
 * Existing public log files, backups containing historical settings, already compromised accounts, and leaked old shared passwords are outside this code update's automatic cleanup. Review those during incident response.
 
-## Release status
+## Ongoing verification
 
-The candidate replaces the source-confirmed vulnerable path and has security regression coverage. Local verification and the link to GitHub Actions results are recorded in `docs/VERIFICATION.md`. Production mail delivery, Plugins-team reopening, and advisory-provider acceptance remain separate release steps. Do not relabel the advisory as fixed solely because automated tests pass.
+The rewrite replaces the source-confirmed vulnerable path and has recurring security regression coverage. [Verification and reports](VERIFICATION.md) explains the CI evidence and manual acceptance checks. The Plugins team accepted the reported remediation and re-listed the plugin; advisory-provider decisions remain separate and are tracked in [issue #6](https://github.com/rubenwoudsma/bulk-password-reset/issues/6). Passing checks or a previous review does not establish that a release has no other security issues.

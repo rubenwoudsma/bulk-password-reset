@@ -1,5 +1,16 @@
 <?php
-/** Fail releases when plugin metadata and the requested tag disagree. */
+/**
+ * Release metadata validation for development and CI.
+ *
+ * Usage: php scripts/check-release.php [--tag=MAJOR.MINOR.PATCH]
+ * Checks the plugin headers, version constant, readme requirements, stable tag,
+ * first changelog entry, and optional Git tag. Exits nonzero on a mismatch.
+ * Also included by package.php before it builds an installable ZIP.
+ * This command-line development tool is excluded from the plugin package.
+ *
+ * @package BulkPasswordReset
+ */
+
 $root = dirname(__DIR__);
 $plugin = file_get_contents($root . '/bulk_password_reset.php');
 $readme = file_get_contents($root . '/readme.txt');

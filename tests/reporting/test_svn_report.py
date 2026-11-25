@@ -16,6 +16,8 @@ import zipfile
 SPEC = importlib.util.spec_from_file_location("svn_report", Path(__file__).resolve().parents[2] / ".github/scripts/svn-report.py")
 REPORT = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(REPORT)
+# Deliberately fictional test data; independent of the plugin's release version.
+FIXTURE_VERSION = "9.8.7"
 
 
 class SvnReportTest(unittest.TestCase):
@@ -27,53 +29,53 @@ class SvnReportTest(unittest.TestCase):
         self.runtime = self.workspace / "build/bulk-password-reset"
         self.runtime.mkdir(parents=True)
         (self.runtime / "bulk_password_reset.php").write_text("<?php // reviewed runtime\n", encoding="utf-8")
-        (self.runtime / "readme.txt").write_text("Stable tag: 2.0.0\n", encoding="utf-8")
+        (self.runtime / "readme.txt").write_text(f"Stable tag: {FIXTURE_VERSION}\n", encoding="utf-8")
         assets = self.workspace / ".wordpress-org"
         assets.mkdir()
         (assets / "icon.png").write_bytes(b"test-asset")
-        for target in (self.checkout / "trunk", self.checkout / "tags/2.0.0"):
+        for target in (self.checkout / "trunk", self.checkout / "tags" / FIXTURE_VERSION):
             shutil.copytree(self.runtime, target)
         shutil.copytree(assets, self.checkout / "assets")
-        self.package = self.workspace / "dist/bulk-password-reset-2.0.0.zip"
+        self.package = self.workspace / f"dist/bulk-password-reset-{FIXTURE_VERSION}.zip"
         self.package.parent.mkdir()
         with zipfile.ZipFile(self.package, "w") as package:
             for path in self.runtime.iterdir():
                 package.write(path, "bulk-password-reset/" + path.name)
-        self.env = patch.dict(os.environ, {"RELEASE_VERSION": "2.0.0", "SVN_DRY_RUN": "true",
+        self.env = patch.dict(os.environ, {"RELEASE_VERSION": FIXTURE_VERSION, "SVN_DRY_RUN": "true",
                               "SVN_IDENTITY_OUTCOME": "success", "SVN_ACTION_OUTCOME": "success",
                               "GITHUB_SHA": "reviewed-revision", "GITHUB_STEP_SUMMARY": str(self.root / "summary.md")})
         self.env.start()
         self.addCleanup(self.env.stop)
 
     def test_runtime_assets_and_zip_match(self):
-        runtime, assets, package = REPORT.verify_trees(self.workspace, self.checkout, "2.0.0")
+        runtime, assets, package = REPORT.verify_trees(self.workspace, self.checkout, FIXTURE_VERSION)
         self.assertEqual({"bulk_password_reset.php", "readme.txt"}, set(runtime))
         self.assertEqual({"icon.png"}, set(assets))
         self.assertEqual(self.package.stat().st_size, package["bytes"])
         self.assertEqual(64, len(package["sha256"]))
 
     def test_extra_legacy_files_are_detected_in_both_svn_targets(self):
-        for relative in ("trunk", "tags/2.0.0"):
+        for relative in ("trunk", f"tags/{FIXTURE_VERSION}"):
             with self.subTest(target=relative):
                 extra = self.checkout / relative / "obsolete-handler.php"
                 extra.write_text("old reset handler", encoding="utf-8")
                 with self.assertRaisesRegex(ValueError, "differs from the ZIP"):
-                    REPORT.verify_trees(self.workspace, self.checkout, "2.0.0")
+                    REPORT.verify_trees(self.workspace, self.checkout, FIXTURE_VERSION)
                 extra.unlink()
 
     def test_changed_directory_asset_is_detected(self):
         (self.checkout / "assets/icon.png").write_bytes(b"different-icon")
         with self.assertRaisesRegex(ValueError, "assets differ"):
-            REPORT.verify_trees(self.workspace, self.checkout, "2.0.0")
+            REPORT.verify_trees(self.workspace, self.checkout, FIXTURE_VERSION)
 
     def test_modified_zip_cannot_pass_tree_verification(self):
         with zipfile.ZipFile(self.package, "w") as package:
             package.writestr("bulk-password-reset/bulk_password_reset.php", "unreviewed-code")
         with self.assertRaisesRegex(ValueError, "differs from the installable ZIP"):
-            REPORT.verify_trees(self.workspace, self.checkout, "2.0.0")
+            REPORT.verify_trees(self.workspace, self.checkout, FIXTURE_VERSION)
 
     def test_invalid_version_and_package_paths_are_rejected(self):
-        for version in ("../../outside", "v2.0.0", "2.0.0\n", "2.0.0;false"):
+        for version in ("../../outside", f"v{FIXTURE_VERSION}", FIXTURE_VERSION + "\n", FIXTURE_VERSION + ";false"):
             with self.subTest(version=version), self.assertRaises(ValueError):
                 REPORT.verify_trees(self.workspace, self.checkout, version)
         for path in ("another-plugin/file.php", "bulk-password-reset/../file.php"):

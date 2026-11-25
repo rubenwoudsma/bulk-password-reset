@@ -1,5 +1,16 @@
 <?php
-/** Build an installable ZIP from an explicit list of runtime files only. */
+/**
+ * Installable plugin ZIP generation for development and CI.
+ *
+ * Usage: php scripts/package.php
+ * Validates release metadata, packages the explicit runtime file list plus
+ * includes and translations, and prints the output path and SHA256 checksum.
+ * Requires PHP's zip extension. Output: dist/bulk-password-reset-VERSION.zip.
+ * Development tools, tests, workflows, and documentation are not packaged.
+ *
+ * @package BulkPasswordReset
+ */
+
 $root = dirname(__DIR__);
 require __DIR__ . '/check-release.php';
 if (!class_exists(ZipArchive::class)) { throw new RuntimeException('Enable the PHP zip extension.'); }

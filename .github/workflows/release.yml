@@ -10,7 +10,6 @@ on:
         description: Version to preview without publishing to GitHub or SVN
         required: true
         type: string
-        default: '2.0.1'
 
 permissions:
   contents: read
