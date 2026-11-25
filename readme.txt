@@ -1,6 +1,6 @@
 === Bulk Password Reset ===
 Contributors: rubenw
-Tags: password reset, users, security, bulk
+Tags: password reset, reset password, users, user role, bulk
 Requires at least: 6.8
 Tested up to: 7.1
 Requires PHP: 8.2
@@ -8,13 +8,15 @@ Stable tag: 2.0.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Preview and reset passwords in bulk by role or selected users, with secure reset links and optional immediate invalidation. Entirely free.
+Bulk reset WordPress user passwords by role or selection. Preview first, send secure reset links, or invalidate passwords. Always free.
 
 == Description ==
 
-Bulk Password Reset helps site administrators ask groups of users to choose new passwords. Select roles under Users > Bulk Password Reset, or select individual users on the Users screen and choose Preview password reset.
+Bulk Password Reset lets WordPress administrators reset passwords for multiple users at once. Select one or more user roles, including custom roles, or choose individual users on the Users screen. Review the preview and confirm before any emails are sent or passwords are changed.
 
-Review a preview before anything is sent or changed. Every feature is free, with no premium edition, account registration, telemetry, or third-party service requirement.
+Send secure WordPress password-reset links so users can choose their own passwords. When existing passwords must stop working immediately, choose immediate invalidation to replace eligible users' passwords, end their browser sessions and email reset links.
+
+Every feature is free, with no paid edition or total user limit. Larger resets run in batches of up to 20 users per request; you choose when to continue. Your own account and privileged accounts are always protected. No account registration, telemetry or third-party service is required.
 
 = Two reset modes =
 
@@ -72,9 +74,13 @@ Requires WordPress 6.8 or newer and PHP 8.2 or newer.
 
 No. All features are free. The 20-candidate batch size bounds each request; it does not limit the total number of users in a job.
 
-= Does sending a link force a password change? =
+= Can I perform a mass password reset by user role? =
 
-No. Link mode leaves existing passwords working. Use immediate invalidation when the old password must stop working at once.
+Yes. Select one or more roles, including custom roles, under Users > Bulk Password Reset, or select individual users on the Users screen and choose Preview password reset. Review the preview, choose a reset mode and confirm before processing. Your own account, administrators and other privileged accounts are excluded.
+
+= Can I force users to choose a new password? =
+
+Sending reset links leaves existing passwords working. Choose immediate invalidation when eligible users' existing passwords and browser sessions must stop working immediately. The plugin emails a link so each user can choose a new password. Verify outgoing mail first: invalidation still changes a password if sending the email fails. Application passwords and external identity-provider sessions are not revoked.
 
 = Can I choose one shared password for everybody? =
 
@@ -100,6 +106,7 @@ The old settings, including stored shared passwords and custom keys, are deleted
 * Use the plugin icon in the header and move the Ruben Woudsma logo into the Made by card; both images are bundled locally.
 * Clarify selected users, recipients, accounts and administrator terminology, and refresh the translation template.
 * Keep completed and cancelled statuses after the 48-hour resume deadline.
+* Clarify the directory description, role-based reset FAQs and free feature set, and refresh the listing banner with a visual reset-link workflow.
 
 = 2.0.0 =
 * Rebuild the plugin's reset flow with authorization, per-user permissions, nonces, confirmation, and protected accounts.

@@ -1,0 +1,37 @@
+Bulk Password Reset — directory banner
+
+The current banner shows the recommended reset-link flow: choose users, review
+the reset, then send links. It replaces the inherited screenshot montage of the
+1.x interface. The palette follows the existing teal/mint plugin icon. There is
+no release number in the artwork, so a routine patch release does not date it.
+
+WordPress.org assets:
+- .wordpress-org/banner-772x250.png: standard banner, 772 by 250 pixels.
+- .wordpress-org/banner-1544x500.png: Retina banner, 1544 by 500 pixels.
+
+Both are RGB PNGs below WordPress.org's 4 MB banner limit. Keep both sizes;
+WordPress.org does not use a Retina banner on its own. The old JPG is removed
+to avoid competing files for the standard banner size. Directory artwork is
+outside the runtime ZIP and is uploaded only through an authorized SVN release.
+
+Version choice:
+The listing copy and banner accompany the still-unpublished 2.0.1 maintenance
+candidate. No 2.0.2 bump is needed, and the published 2.0.0 source/tag is unchanged.
+SVN assets are not intrinsically tied to the plugin version; keeping them with
+2.0.1 is a release choice, not a WordPress.org requirement. Merging the PR does
+not publish a GitHub Release or upload to SVN.
+
+Creation and export:
+Created on 25 November 2026 with the built-in image generator, using the existing
+.wordpress-org/icon-256x256.png as the visual reference. The selected image was
+mechanically centre-cropped to the required 1544:500 aspect ratio and exported at
+the two exact sizes with high-quality bicubic resampling. Text and illustrations
+were visually checked at the standard display size. No plaintext passwords or
+claims of guaranteed email delivery are shown. The existing plugin license
+applies to these repository assets.
+
+Generation prompt (verbatim):
+Use case: ads-marketing. Create a polished new WordPress.org plugin banner for Bulk Password Reset, exact panoramic aspect 1544:500 (3.088:1), intended display size 772x250. Flat rectangular artwork, not a mockup. The supplied teal-and-mint lock/reset-arrow icon is a reference for the established brand; include it faithfully near the title, do not invent a new logo. Use a modern, friendly, crisp product flow illustration with restrained soft shadows and rounded cards. Left 42%: deep teal #174F63 identity panel, large white title on two lines exactly 'Bulk Password' and 'Reset'. Below, text exactly 'Many users. One clear workflow.' and a small mint pill 'All features free'. Optional understated small 'By Ruben Woudsma' credit if clean. Right 58%: pale icy white #F4FAFC, three horizontally connected illustrated cards: first a group of users with selected checkboxes labelled 'Choose users'; second a review checklist with a confirmation tick labelled 'Review'; third multiple outgoing email envelopes with small padlocks labelled 'Send links'. Subtle clear arrows connect the cards to show one administrator resetting many users through secure reset links. Use navy #102E40, teal, mint #5ED6BE and white. All exact text must be readable, spelled correctly, and readable at half size. Keep main content 40px away from the outer edges at 1544px width. No version number, no old UI screenshot, no support-agent/sunglasses stock character, no WordPress logo or endorsement, no Pro/paid messaging, no plaintext passwords, no fake web browser frame, no clutter. Professional and approachable, ready for a real plugin directory.
+
+Reference:
+https://developer.wordpress.org/plugins/wordpress-org/plugin-assets/

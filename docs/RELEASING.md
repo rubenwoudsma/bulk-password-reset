@@ -1,18 +1,16 @@
 # Maintainer release setup
 
-## Current candidate — 24 November 2026
+## Current candidate — 25 November 2026
 
-Version 2.0.0 was uploaded to the existing SVN repository in revision r3818946, and the maintainer confirmed replying in the original closure thread. WordPress.org review/reopening is pending. Version 2.0.1 in this branch is a maintenance candidate for review; preparing or merging its PR does not create a release tag or authorize publication. Keep `WPORG_DEPLOY_ENABLED=false` while waiting for the Plugins team unless a subsequent upload is explicitly authorized.
+Version 2.0.0 was uploaded to the existing SVN repository in revision r3818946; contributor-only revision r3820830 corrected the readme username to `rubenw`. The Plugins team has confirmed re-listing, and the ordinary WordPress.org update offer from the authentic 1.3.3 metadata to 2.0.0 was independently verified on 25 November 2026. The offered ZIP matched all 11 reviewed release files. GitHub advisory PR [#11982](https://github.com/github/advisory-database/pull/11982) and the [reply to its curators](https://github.com/github/advisory-database/pull/11982#issuecomment-7156866989) remain separate from an accepted advisory correction.
 
-## First: review and reopening
+Version 2.0.1 remains an **unpublished maintenance candidate**. Its completion-flow fixes, listing copy and directory artwork can be reviewed together without another version bump. Directory assets are not tied to a code version, but there is no need to amend the published 2.0.0 release for this work. Preparing or merging this PR does not authorize publication. Keep `WPORG_DEPLOY_ENABLED=false` until a specific subsequent upload is explicitly authorized; do not push a 2.0.1 tag or publish a GitHub Release yet.
 
-As checked on 23 November 2026, WordPress.org lists Bulk Password Reset 1.3.3 as temporarily closed pending review. Wordfence lists CVE-2026-14873 as affecting versions through 1.3.3 and having no known patch. This working copy does not change those external records.
+## Review, reopening and advisory follow-up
 
-1. Review the security rebuild and test the ZIP on a staging site with real mail delivery. Merge changes through a green pull request. The security rewrite and maintenance PRs #1, #3 and #4 have been merged; opening or merging a PR does not upload to WordPress.org.
-2. Read the original closure notice and address every requirement. The automated routing response supplied by the maintainer identifies the case as **[WordPress Plugin Directory] Closure Notice - Security: Bulk Password Reset**, first sent on **19 August 2026 (UTC)**. It says a separately sent reopening email has not reached the case volunteers. If the original is missing, reply to that automated response asking for it to be resent in the original case thread.
-3. The team's routing response explicitly requests an SVN upload **while the plugin is still closed** before asking for review/reopening. Prepare the upload using the manual preview below. Complete the actual upload after the closure requirements have been checked and the upload has been authorized. Reopening is not a prerequisite for that upload.
-4. Reply in the original closure thread with the uploaded SVN version/revision, remediation explanation and test evidence. Only the Plugins team can approve reopening. A new plugin submission or an emailed ZIP does not complete the requested SVN upload.
-5. Request advisory-provider updates when the fixed release is available for users; do not claim their approval in advance. The maintainer has already contacted Wordfence about the candidate.
+The original closure notice was received and reviewed. The 2.0.0 security rebuild passed acceptance and CI, was submitted via SVN, and the maintainer replied in the original closure thread. The Plugins team subsequently accepted the reported remediation and re-listed the plugin. A successful update offer is confirmed; it does not establish that every existing site has completed its upgrade. Sites still require WordPress 6.8 and PHP 8.2 or later.
+
+Track remaining Wordfence/CVE and GitHub curator decisions in [issue #6](https://github.com/rubenwoudsma/bulk-password-reset/issues/6). Preserve the reported affected range through 1.3.3 and first patched release 2.0.0. Submitted evidence or a posted comment is not provider acceptance, and the unpublished 2.0.1 candidate is not the first patched version.
 
 ## Configure GitHub once
 
@@ -23,7 +21,7 @@ Add these **environment secrets**:
 * `SVN_USERNAME`: the WordPress.org account authorized to commit to this plugin.
 * `SVN_PASSWORD`: that account's WordPress.org SVN password. Generate it using WordPress.org's current account security process; never put it in the repository.
 
-The **environment variable** `WPORG_DEPLOY_ENABLED` controls actual SVN writes. Keep it `false` while awaiting the original closure notice and for preparation. Enable it only when the reviewed upload is authorized; this can include the Plugins team's requested review upload while the listing is closed. Leaving it unset also disables actual uploads. A tagged run skips SVN cleanly while the gate is false; its GitHub Release can still publish. Manual previews never publish a GitHub Release or commit to SVN, including when this variable is true. GitHub will create a missing named environment automatically if referenced, so configure its protections explicitly rather than assuming the workflow enforces them by itself.
+The **environment variable** `WPORG_DEPLOY_ENABLED` controls actual SVN writes. Keep it `false` for preparation and while the maintainer's publication hold is in effect. Enable it only when a specific reviewed upload is authorized. Leaving it unset also disables actual uploads. A tagged run skips SVN cleanly while the gate is false; its GitHub Release can still publish. Manual previews never publish a GitHub Release or commit to SVN, including when this variable is true. GitHub will create a missing named environment automatically if referenced, so configure its protections explicitly rather than assuming the workflow enforces them by itself.
 
 Actions are enabled. On 23 November 2026, master branch protection was configured to require a pull request, all eight quality/integration/Plugin Check jobs from the GitHub Actions app, an up-to-date branch, and resolved review conversations. The rule applies to administrators and blocks force pushes and deletion. It requires zero approving reviews so the sole maintainer can merge a passing PR without a second reviewer. If CI job names change, update the required checks to match. These are live repository settings, separate from workflow files.
 
@@ -45,7 +43,7 @@ Open **Actions → Release plugin → Run workflow**, select `master`, and enter
 
 The workflow reruns all nine CI jobs and prepares a **github-release-candidate** artifact containing the tested ZIP, release notes (`notes.md`), checksum and source/file metadata (`release.json`). The run's Summary links the preparation results. You can inspect this candidate before creating a real tag.
 
-The separate SVN preview verifies matching version metadata, builds the runtime ZIP, refuses an already-existing SVN release tag, and uses 10up's pinned deployment action with `dry-run: true`. It checks out the existing plugin repository and stages the exact planned replacement of `trunk`, new `tags/2.0.0`, and directory assets, without making an SVN commit. This works with `WPORG_DEPLOY_ENABLED=false` and uses the existing `wordpress-org` environment; no additional secrets are needed.
+The separate SVN preview verifies matching version metadata, builds the runtime ZIP, refuses an already-existing SVN release tag, and uses 10up's pinned deployment action with `dry-run: true`. It checks out the existing plugin repository and stages the exact planned replacement of `trunk`, the new version tag (currently `tags/2.0.1`), and directory assets, without making an SVN commit. This works with `WPORG_DEPLOY_ENABLED=false` and uses the existing `wordpress-org` environment; no additional secrets are needed.
 
 When testing a workflow/reporting change on a preparation branch, a manual preview can also select that branch. Before staging, it must match `origin/master` exactly for every runtime file, packaging/metadata script and directory asset. This allows reviewing workflow changes while keeping the upload candidate equal to reviewed master. Live tagged uploads always require the tagged commit to belong to master. GitHub requires the workflow file to exist on its default branch for manual dispatch; see [GitHub's manual-run documentation](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow).
 
@@ -80,7 +78,7 @@ If a tag build fails, fix the cause and rerun only when the tag still represents
 
 After a release already exists, merge the readme change to master. Start **Sync published readme** from Actions with its default dry run and review the diff. Run again with dry run disabled to publish.
 
-The script updates only `trunk/readme.txt` and `tags/CURRENT-STABLE/readme.txt`. Both remote files must already name the same stable version as the local readme. It does not create tags, switch stable versions, alter code or upload assets. It skips empty commits. The first 2.0.0 readme sync will intentionally fail while WordPress.org still advertises the historical stable version; publish the reviewed code release first.
+The script updates only `trunk/readme.txt` and `tags/CURRENT-STABLE/readme.txt`. Both remote files must already name the same stable version as the local readme. It does not create tags, switch stable versions, alter code or upload assets. It skips empty commits. Current master contains the unpublished 2.0.1 candidate while WordPress.org serves 2.0.0, so an ordinary master-based readme sync must reject that mismatch. Keep the listing and banner changes with the next authorized release instead of using this workflow to publish the candidate early.
 
 ## Inspiration and source documentation
 
