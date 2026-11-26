@@ -4,7 +4,7 @@ These files contain regression tests, not saved reports. Each test creates tempo
 
 | Test module | Coverage |
 | --- | --- |
-| `test_ci_report.py` | Fresh run/profile identity, stable and pre-release matrix aggregation, installed-version verification, failures, missing evidence, JUnit parsing and native Actions summaries |
+| `test_ci_report.py` | Fresh run/profile identity, stable and pre-release matrix aggregation, installed-version verification, debug-capture proof and unreviewed diagnostics, failures, missing evidence, JUnit parsing and native Actions summaries |
 | `test_github_release.py` | Changelog extraction, exact package verification, checksums, tag identity, draft recovery and publication boundaries |
 | `test_svn_report.py` | ZIP/trunk/tag/asset parity, path validation, read-only preview evidence and failed/incomplete upload reporting |
 

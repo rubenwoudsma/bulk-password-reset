@@ -52,12 +52,12 @@ final class SecurityTest extends TestCase
         $_POST = $_GET = $_REQUEST = [];
     }
 
-    private function user(string $role): int
+    private function user(string $role, ?string $login = null): int
     {
-        $login = 'bpr_' . str_replace('-', '', wp_generate_uuid4());
+        $login ??= 'bpr_' . str_replace('-', '', wp_generate_uuid4());
         $id = wp_insert_user([
             'user_login' => $login,
-            'user_email' => $login . '@example.test',
+            'user_email' => rtrim($login, '.') . '@example.test',
             'user_pass' => 'Original-unique-password-2026!',
             'role' => $role,
         ]);
@@ -84,8 +84,9 @@ final class SecurityTest extends TestCase
 
     private function link(int $mail = 0): array
     {
-        self::assertSame(1, preg_match('~https?://[^\s]+action=rp[^\s]+~', $this->mails[$mail]['message'], $matches));
+        self::assertSame(1, preg_match('~https?://[^\s]+/wp-login\.php\?[^\s]+~', $this->mails[$mail]['message'], $matches));
         parse_str(parse_url($matches[0], PHP_URL_QUERY), $query);
+        self::assertSame('rp', $query['action'] ?? null);
         return $query;
     }
 
@@ -221,6 +222,40 @@ final class SecurityTest extends TestCase
         self::assertInstanceOf(WP_User::class, $user);
         reset_password($user, 'User-chosen-new-password-2026!');
         self::assertWPErrorCode('invalid_key', check_password_reset_key($link['key'], $link['login']));
+    }
+
+    public static function resetModes(): array
+    {
+        return [['link'], ['invalidate']];
+    }
+
+    #[DataProvider('resetModes')]
+    public function testAutomaticallyLinkedUrlPreservesTrailingPeriodUsername(string $mode): void
+    {
+        $login = 'bpr_' . str_replace('-', '', wp_generate_uuid4()) . '.';
+        $id = $this->user('subscriber', $login);
+        $before = get_userdata($id)->user_pass;
+        $sessions = WP_Session_Tokens::get_instance($id);
+        $token = $sessions->create(time() + HOUR_IN_SECONDS);
+
+        self::assertSame('sent', $this->service->reset_user($id, $mode)['status']);
+        $raw = $this->link();
+        self::assertSame($login, $raw['login']);
+        self::assertSame(1, preg_match('~https?://[^\s]+/wp-login\.php\?[^\s]+~', $this->mails[0]['message'], $matches));
+        self::assertSame(1, preg_match('/href="([^"]+)"/', make_clickable($matches[0]), $linked));
+        $url = html_entity_decode($linked[1], ENT_QUOTES, 'UTF-8');
+        parse_str(parse_url($url, PHP_URL_QUERY), $query);
+        self::assertSame($raw, $query);
+        self::assertSame(network_site_url('wp-login.php', 'login'), strtok($url, '?'));
+        self::assertSame($mode === 'link', $before === get_userdata($id)->user_pass);
+        self::assertSame($mode === 'link', $sessions->verify($token));
+
+        $user = check_password_reset_key($query['key'], $query['login']);
+        self::assertInstanceOf(WP_User::class, $user);
+        self::assertSame($id, $user->ID);
+        reset_password($user, 'Chosen-trailing-period-password-2026!');
+        self::assertTrue(wp_check_password('Chosen-trailing-period-password-2026!', get_userdata($id)->user_pass, $id));
+        self::assertWPErrorCode('invalid_key', check_password_reset_key($query['key'], $query['login']));
     }
 
     public function testResetLinkExpiryUsesWordPressPolicy(): void

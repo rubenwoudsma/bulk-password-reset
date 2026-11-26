@@ -41,6 +41,17 @@ runs:
     - name: Verify WP-CLI is available
       shell: bash
       run: wp --info
+    - name: Verify CLI messages and failure status are preserved
+      shell: bash
+      run: |
+        mkdir -p reports
+        code=0
+        wp eval --skip-wordpress --require=.github/scripts/wp-cli-logger.php \
+          'WP_CLI::success("BPR logger success probe"); WP_CLI::warning("BPR logger warning probe"); WP_CLI::error("BPR logger error probe");' \
+          > reports/cli-logger-stdout.txt 2> reports/cli-logger-stderr.txt || code=$?
+        test "$code" -eq 1
+        test "$(cat reports/cli-logger-stdout.txt)" = 'Success: BPR logger success probe'
+        test "$(cat reports/cli-logger-stderr.txt)" = "$(printf 'Warning: BPR logger warning probe\nError: BPR logger error probe')"
     - id: install
       shell: bash
       run: composer install --no-interaction --prefer-dist
@@ -54,14 +65,20 @@ runs:
         BPR_WP_ROOT: ${{ runner.temp }}/wordpress
       shell: bash
       run: |
+        mkdir -p reports
+        touch reports/wordpress-debug.log
         wp core download --version="$WP_VERSION" --path="$BPR_WP_ROOT"
         wp config create --path="$BPR_WP_ROOT" --dbname=wordpress_test --dbuser=root --dbpass=root --dbhost=127.0.0.1:3306
         wp config set BPR_TESTING true --raw --path="$BPR_WP_ROOT"
         wp config set WP_ENVIRONMENT_TYPE local --path="$BPR_WP_ROOT"
+        wp config set WP_DEBUG true --raw --path="$BPR_WP_ROOT"
+        wp config set WP_DEBUG_DISPLAY false --raw --path="$BPR_WP_ROOT"
+        wp config set WP_DEBUG_LOG "$GITHUB_WORKSPACE/reports/wordpress-debug.log" --path="$BPR_WP_ROOT"
+        # Preserve all messages as plain text; avoid the pinned CLI's deprecated color helper.
         if [ "$WP_MODE" = multisite ]; then
-          wp core multisite-install --path="$BPR_WP_ROOT" --url=http://bpr.test --title=Tests --admin_user=testadmin --admin_password=disposable-test-password --admin_email=admin@example.test --skip-email
+          wp core multisite-install --require=.github/scripts/wp-cli-logger.php --path="$BPR_WP_ROOT" --url=http://bpr.test --title=Tests --admin_user=testadmin --admin_password=disposable-test-password --admin_email=admin@example.test --skip-email
         else
-          wp core install --path="$BPR_WP_ROOT" --url=http://bpr.test --title=Tests --admin_user=testadmin --admin_password=disposable-test-password --admin_email=admin@example.test --skip-email
+          wp core install --require=.github/scripts/wp-cli-logger.php --path="$BPR_WP_ROOT" --url=http://bpr.test --title=Tests --admin_user=testadmin --admin_password=disposable-test-password --admin_email=admin@example.test --skip-email
         fi
     - name: Record installed test environment
       shell: bash
@@ -76,7 +93,8 @@ runs:
       run: composer test -- --log-junit reports/junit.xml
       env:
         BPR_WP_ROOT: ${{ runner.temp }}/wordpress
-    - name: Record integration results
+        BPR_CI_DEBUG_REPORT: ${{ github.workspace }}/reports/wordpress-debug.json
+    - name: Record integration results and check debug log
       if: ${{ always() }}
       env:
         CI_STEPS: ${{ toJSON(steps) }}

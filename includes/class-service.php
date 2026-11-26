@@ -159,7 +159,8 @@ final class Service {
 				$result['status'] = 'failed';
 				return $result;
 			}
-			$url     = network_site_url( 'wp-login.php?action=rp&key=' . rawurlencode( $key ) . '&login=' . rawurlencode( $user->user_login ), 'login' );
+			// Keep login away from the end so automatic links retain a trailing period.
+			$url     = network_site_url( 'wp-login.php?login=' . rawurlencode( $user->user_login ) . '&key=' . rawurlencode( $key ) . '&action=rp', 'login' );
 			$site    = sanitize_text_field( wp_specialchars_decode( get_option( 'blogname' ), ENT_QUOTES ) );
 			$message = sprintf(
 				/* translators: %s: site name. */

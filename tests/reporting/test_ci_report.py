@@ -30,6 +30,14 @@ class ReportTest(unittest.TestCase):
         self.addCleanup(self.env.stop)
         self.needs = {key: {"result": "success"} for key in ("quality", "integration", "plugin-check")}
 
+    def debug_fixture(self):
+        path = self.directory / "wordpress-debug.log"
+        REPORT.write_json(self.directory / "wordpress-debug.json", {
+            "debug": True, "display": False, "log_errors": True, "display_errors": False,
+            "all_errors": True, "configured_log": str(path.resolve()), "error_log": str(path.resolve()),
+        })
+        path.write_text("[26-Nov-2026 12:00:00 UTC] BPR CI debug logging probe\n", encoding="utf-8")
+
     def fixture(self, profile="stable"):
         base = {"schema": 1, "profile": profile, "sha": "abc123", "run_id": "42", "status": "success", "report_errors": []}
         quality = dict(base, kind="quality", checks={key: "success" for key in REPORT.QUALITY_CHECKS},
@@ -43,6 +51,8 @@ class ReportTest(unittest.TestCase):
             report = dict(base, kind="integration", matrix=matrix,
                           checks={key: "success" for key in ("install", "platform", "tests")},
                           versions={"wordpress": "7.1.5" if matrix[0] == "latest" else matrix[0], "php": matrix[1] + ".1"},
+                          debug={"log": "wordpress-debug.log", "bytes": 60, "sha256": "a" * 64,
+                                 "probe_lines": 1, "unreviewed_lines": 0},
                           tests={"tests": 3, "passed": 2, "failures": 0, "errors": 0, "skipped": 1, "assertions": 7})
             REPORT.write_json(self.directory / f"collected/integration-{number}/result.json", report)
 
@@ -65,6 +75,8 @@ class ReportTest(unittest.TestCase):
         self.assertEqual({"tests": 18, "passed": 12, "failures": 0, "errors": 0, "skipped": 6, "assertions": 42}, data["totals"])
         self.assertIn("6/6 environments", text)
         self.assertIn("artifacts/7", text)
+        self.assertIn("## WordPress debug logs", text)
+        self.assertIn("wordpress-debug.log", text)
         self.assertEqual(text, (self.directory / "step-summary.md").read_text(encoding="utf-8"))
 
     def test_failed_github_job_cannot_be_overridden_by_successful_reports(self):
@@ -209,6 +221,7 @@ class ReportTest(unittest.TestCase):
         self.assertIn("GitHub job integration: failure", text)
 
     def test_record_keeps_prerelease_profile_and_installed_versions(self):
+        self.debug_fixture()
         (self.directory / "wordpress-version.txt").write_text("7.2-RC3\n", encoding="utf-8")
         (self.directory / "php-version.txt").write_text("8.6.0", encoding="utf-8")
         (self.directory / "junit.xml").write_text('<testsuite><testcase assertions="1"/></testsuite>', encoding="utf-8")
@@ -220,6 +233,59 @@ class ReportTest(unittest.TestCase):
         self.assertEqual("prerelease", result["profile"])
         self.assertEqual({"wordpress": "7.2-RC3", "php": "8.6.0"}, result["versions"])
         self.assertFalse(result["report_errors"])
+        self.assertEqual(0, result["debug"]["unreviewed_lines"])
+
+    def test_disabled_or_misdirected_logging_is_rejected(self):
+        for change in ({"debug": False}, {"display": True}, {"all_errors": False},
+                       {"log_errors": False}, {"display_errors": True},
+                       {"configured_log": "/tmp/elsewhere.log"}, {"error_log": "/tmp/elsewhere.log"}):
+            with self.subTest(change=change):
+                self.debug_fixture()
+                settings = REPORT.load_json(self.directory / "wordpress-debug.json")
+                settings.update(change)
+                REPORT.write_json(self.directory / "wordpress-debug.json", settings)
+                with self.assertRaisesRegex(ValueError, "debug settings"):
+                    REPORT.debug_counts(self.directory)
+
+    def test_empty_missing_or_duplicate_probe_is_not_a_clean_capture(self):
+        self.debug_fixture()
+        path = self.directory / "wordpress-debug.log"
+        for content in ("", "PHP Warning: example\n", "BPR CI debug logging probe\n" * 2):
+            with self.subTest(content=content):
+                path.write_text(content, encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "bootstrap probe"):
+                    REPORT.debug_counts(self.directory)
+        path.unlink()
+        with self.assertRaises(OSError):
+            REPORT.debug_counts(self.directory)
+
+    def test_unreviewed_log_lines_fail_record_and_are_preserved(self):
+        self.debug_fixture()
+        path = self.directory / "wordpress-debug.log"
+        original = path.read_text(encoding="utf-8") + "PHP Deprecated: example\n  stack trace line\n"
+        path.write_text(original, encoding="utf-8")
+        (self.directory / "junit.xml").write_text('<testsuite><testcase assertions="1"/></testsuite>', encoding="utf-8")
+        self.assertEqual(1, REPORT.record("integration", self.directory))
+        result = REPORT.load_json(self.directory / "result.json")
+        self.assertEqual(2, result["debug"]["unreviewed_lines"])
+        self.assertTrue(result["report_errors"])
+        self.assertEqual(original, path.read_text(encoding="utf-8"))
+
+    def test_missing_debug_evidence_fails_both_summary_profiles(self):
+        for profile in REPORT.MATRICES:
+            with self.subTest(profile=profile):
+                self.fixture(profile)
+                self.alter("integration-0", lambda data: data.pop("debug"))
+                code, _, text = self.summarize(profile)
+                self.assertEqual(1, code)
+                self.assertIn("WordPress debug capture missing", text)
+
+    def test_summary_rejects_unreviewed_diagnostics_even_without_report_errors(self):
+        self.fixture()
+        self.alter("integration-0", lambda data: data["debug"].update(unreviewed_lines=1))
+        code, _, text = self.summarize()
+        self.assertEqual(1, code)
+        self.assertIn("WordPress debug capture missing or needs review", text)
 
     def test_nested_junit_suites_are_not_double_counted(self):
         path = self.directory / "junit.xml"
@@ -244,6 +310,7 @@ class ReportTest(unittest.TestCase):
         self.assertEqual("failure", result["checks"]["tests"])
         self.assertNotIn("tests", result)
         self.assertTrue(result["report_errors"])
+        self.assertTrue(any("WordPress debug capture unavailable" in error for error in result["report_errors"]))
 
 
 if __name__ == "__main__":

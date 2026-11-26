@@ -4,7 +4,7 @@ Tags: password reset, reset password, users, user role, bulk
 Requires at least: 6.8
 Tested up to: 7.1
 Requires PHP: 8.2
-Stable tag: 2.0.1
+Stable tag: 2.0.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -100,6 +100,10 @@ The old settings, including stored shared passwords and custom keys, are deleted
 
 == Changelog ==
 
+= 2.0.2 =
+* Preserve usernames ending in a period when reset links are made clickable, in both reset modes.
+* Enable and verify WordPress debug logging in CI, retain logs and fail reports on missing or unreviewed diagnostics.
+
 = 2.0.1 =
 * Keep completed, cancelled and expired reset results on step 3, with an explicit Start a new reset action and a link back to the previous results.
 * Finish exact 20-user batch multiples without an empty Continue request, using bounded look-ahead without changing the next recipient.
@@ -120,6 +124,9 @@ The old settings, including stored shared passwords and custom keys, are deleted
 * Last historical WordPress.org release. Do not use for new installations.
 
 == Upgrade Notice ==
+
+= 2.0.2 =
+Fixes automatically linked reset URLs for usernames ending in a period. No settings or saved reset jobs need to be migrated.
 
 = 2.0.1 =
 Improves completion screens, batch boundaries, branding and wording. No reset settings or stored job data need to be migrated.

@@ -13,6 +13,8 @@ Open a [Quality and security](https://github.com/rubenwoudsma/bulk-password-rese
 
 Download **ci-report** for `overview.md`, `overview.json`, per-environment JUnit XML, dependency-audit JSON and available Plugin Check output. Actions artifacts are retained for **14 days**; save any evidence needed for longer-term review before it expires. The run links and release source commit identify which checks were performed.
 
+Stable and pre-release integration jobs enable WordPress debug logging with hidden display and retain `wordpress-debug.log` plus `wordpress-debug.json`. The bootstrap records the settings in the actual PHPUnit process and writes one logging probe. The overview shows capture status and unreviewed log-line counts per environment. Missing proof or any nonempty line other than the exact probe fails the reporting check; inspect raw logs for context rather than treating line counts as distinct errors. PHPUnit also reports diagnostics handled by its own error handler and fails on warnings, notices and deprecations. Logs are outside the plugin package, and collection still runs after setup/test failure where the runner permits it.
+
 A manual release preview also produces **github-release-candidate** (ZIP, notes, checksum and source/file manifest) and **wordpress-org-svn-report** (planned trees, hashes and SVN diff). A preview never publishes or commits. A version-tag run can publish after its checks pass and the relevant release controls allow it; see [the release guide](RELEASING.md).
 
 The published GitHub Release keeps its changelog notes, plugin ZIP and checksum beyond the Actions artifact retention period. Repository-only documentation or fixture cleanup does not require a new plugin release.
@@ -26,6 +28,8 @@ Pre-release checks are separate from the release prerequisites and do not change
 ## Tests and sample data
 
 `tests/SecurityTest.php` exercises real WordPress behavior on a disposable installation, including authorization, nonces, per-target protections, reset links, both reset modes, sessions, mail failures, durable checkpoints, concurrency, cancellation, multisite and resumable batches. Boundary cases include 1, 19, 20, 21 and 40 users and an untouched look-ahead recipient.
+
+Reset-link regressions include a username ending in a period, both reset modes and core's automatic linkification. They check network-aware URLs, exact username/key preservation, password/session behavior and a working single-use core reset.
 
 `tests/reporting/` tests the reporting and release tools themselves. Its temporary sample repositories, versions, test counts and mocked API responses are **test fixtures**, not historical reports or live publication results. They stay independent of the plugin version; changing every sample number for each release would not refresh the actual reports. See [the fixture guide](../tests/reporting/README.md) for coverage and the local command.
 

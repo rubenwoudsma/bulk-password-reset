@@ -81,6 +81,27 @@ def junit_counts(path):
     return counts
 
 
+def debug_counts(directory):
+    """Verify actual PHPUnit settings and keep every unexpected log line visible."""
+    settings = load_json(directory / "wordpress-debug.json")
+    path = directory / "wordpress-debug.log"
+    expected = str(path.resolve())
+    if (settings.get("debug") is not True or settings.get("display") is not False
+            or settings.get("log_errors") is not True or settings.get("display_errors") is not False
+            or settings.get("all_errors") is not True
+            or settings.get("configured_log") != expected or settings.get("error_log") != expected):
+        raise ValueError("WordPress debug settings are missing, disabled or use the wrong log path")
+    if path.stat().st_size > 5_000_000:
+        raise ValueError("WordPress debug log is too large; inspect the raw artifact")
+    raw = path.read_bytes()
+    lines = [line for line in raw.decode("utf-8", errors="replace").splitlines() if line.strip()]
+    probes = sum(bool(re.fullmatch(r"(?:\[[^\]\r\n]+\] )?BPR CI debug logging probe", line)) for line in lines)
+    if probes != 1:
+        raise ValueError("WordPress debug log has no unique bootstrap probe; capture is unverified")
+    return {"log": path.name, "bytes": len(raw), "sha256": hashlib.sha256(raw).hexdigest(),
+            "probe_lines": probes, "unreviewed_lines": len(lines) - probes}
+
+
 def record(kind, directory, profile="stable"):
     directory.mkdir(parents=True, exist_ok=True)
     steps = json.loads(os.environ.get("CI_STEPS", "{}"))
@@ -120,11 +141,18 @@ def record(kind, directory, profile="stable"):
             report["tests"] = junit_counts(directory / "junit.xml")
         except (OSError, ValueError, ET.ParseError) as error:
             report["report_errors"].append(f"JUnit results unavailable: {error}")
+        try:
+            report["debug"] = debug_counts(directory)
+            if report["debug"]["unreviewed_lines"]:
+                report["report_errors"].append("WordPress debug log has unreviewed lines; inspect wordpress-debug.log")
+        except (OSError, ValueError, TypeError, AttributeError) as error:
+            report["report_errors"].append(f"WordPress debug capture unavailable: {error}")
     else:
         path = Path(os.environ.get("RUNNER_TEMP", ".")) / "plugin-check-results.txt"
         if path.is_file():
             shutil.copyfile(path, directory / "plugin-check-results.txt")
     write_json(directory / "result.json", report)
+    return 1 if report["report_errors"] else 0
 
 
 def cell(value):
@@ -179,7 +207,7 @@ def summarize(directory, needs, profile="stable"):
             if report.get("checks", {}).get(key) != "success":
                 problems.append(f"Required check did not succeed: {key}")
     totals = dict(tests=0, passed=0, failures=0, errors=0, skipped=0, assertions=0)
-    rows, available = [], 0
+    rows, debug_rows, available = [], [], 0
     for matrix in matrix_entries:
         report = records.get(matrix, {})
         tests = report.get("tests")
@@ -207,6 +235,16 @@ def summarize(directory, needs, profile="stable"):
                     or (matrix[0] != "latest" and wordpress != matrix[0])):
                 problems.append(f"Installed versions do not match the requested environment: {matrix}")
         environment = f"{cell(matrix[0])} / {cell(matrix[1])} / {cell(matrix[2])}"
+        debug = report.get("debug", {})
+        valid_debug = (isinstance(debug, dict) and debug.get("log") == "wordpress-debug.log"
+                       and type(debug.get("probe_lines")) is int and debug["probe_lines"] == 1
+                       and type(debug.get("bytes")) is int and debug["bytes"] > 0
+                       and isinstance(debug.get("sha256"), str) and re.fullmatch(r"[0-9a-f]{64}", debug["sha256"])
+                       and type(debug.get("unreviewed_lines")) is int and debug["unreviewed_lines"] >= 0)
+        if not valid_debug or debug["unreviewed_lines"]:
+            problems.append(f"WordPress debug capture missing or needs review: {matrix}")
+        debug_rows.append(f"| {environment} | {'Verified' if valid_debug else 'Unavailable'} | "
+                          f"{debug['unreviewed_lines'] if valid_debug else '—'} |")
         values = [environment, cell(versions.get("wordpress")), cell(versions.get("php")),
                   status(report.get("status"))]
         values += [str(tests[key]) if valid else "—" for key in ("passed", "failures", "errors", "skipped", "assertions")]
@@ -224,7 +262,15 @@ def summarize(directory, needs, profile="stable"):
              f"Available results: **{available}/{len(matrix_entries)} environments**. Test executions across these environments: "
              f"**{totals['passed']} passed, {totals['failures']} failures, {totals['errors']} errors, "
              f"{totals['skipped']} skipped; {totals['assertions']} assertions**.", "",
-             "The same suite runs in each environment; totals count repeated executions. Multisite-only cases are skipped on single sites.", ""]
+             "The same suite runs in each environment; totals count repeated executions. Multisite-only cases are skipped on single sites.", "",
+             "## WordPress debug logs", "",
+             "| Requested WordPress / PHP / mode | Debug capture | Unreviewed log lines |",
+             "| --- | --- | ---: |", *debug_rows, "",
+             "The collector verifies WP_DEBUG, hidden display, E_ALL and the log path recorded by the PHPUnit bootstrap, "
+             "plus one logging probe. Only that exact probe is classified as expected. "
+             "Any other nonempty log line or missing capture fails the report; inspect the raw "
+             "wordpress-debug.log and wordpress-debug.json in each environment's artifact. "
+             "Log-line counts are not distinct PHP error counts. PHPUnit also reports diagnostics handled by its own error handler.", ""]
     if stable:
         lines += ["## Quality and security checks", "", "| Check | Result |", "| --- | --- |"]
         for key, label in QUALITY_CHECKS.items():
@@ -244,7 +290,7 @@ def summarize(directory, needs, profile="stable"):
     lines += ["", "These automated checks do not constitute a full security audit or WordPress.org approval.", "",
               "## Package and downloadable reports", "",
               f"Download **{artifact}** from this run's Artifacts section for this overview, combined JSON and "
-              "per-environment JUnit XML" + (", dependency-audit JSON, and available Plugin Check output" if stable else "")
+              "per-environment JUnit XML, WordPress debug logs/settings" + (", dependency-audit JSON, and available Plugin Check output" if stable else "")
               + ". Reports are retained for 14 days.", ""]
     package_url = quality.get("package_url", "")
     if isinstance(package_url, str) and package_url.startswith(run_url + "/artifacts/") and package_url[len(run_url + "/artifacts/"):].isdigit():
@@ -279,8 +325,7 @@ def main():
     if args.command == "record":
         if not args.kind:
             parser.error("record requires a report kind")
-        record(args.kind, args.directory, args.profile)
-        return 0
+        return record(args.kind, args.directory, args.profile)
     return summarize(args.directory, json.loads(os.environ.get("CI_NEEDS", "{}")), args.profile)
 
 
