@@ -1,7 +1,10 @@
 version: 2
 updates:
   - package-ecosystem: github-actions
-    directory: /
+    directories:
+      - /
+      # Composite action dependencies are outside .github/workflows.
+      - /.github/actions/wordpress-tests
     schedule:
       interval: weekly
     open-pull-requests-limit: 5

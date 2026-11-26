@@ -111,74 +111,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
+      - name: Run WordPress integration suite
+        uses: ./.github/actions/wordpress-tests
         with:
-          php-version: ${{ matrix.php }}
-          extensions: mysqli, mbstring, zip
-          tools: composer:v2
-          coverage: none
-      - name: Install verified WP-CLI with download retries
-        env:
-          WP_CLI_VERSION: '2.12.0'
-          WP_CLI_SHA256: ce34ddd838f7351d6759068d09793f26755463b4a4610a5a5c0a97b68220d85c
-        run: |
-          mkdir -p "$RUNNER_TEMP/bpr-tools"
-          curl --fail --location --retry 3 --retry-all-errors --connect-timeout 15 --max-time 120 \
-            "https://github.com/wp-cli/wp-cli/releases/download/v${WP_CLI_VERSION}/wp-cli-${WP_CLI_VERSION}.phar" \
-            --output "$RUNNER_TEMP/bpr-tools/wp"
-          printf '%s  %s\n' "$WP_CLI_SHA256" "$RUNNER_TEMP/bpr-tools/wp" | sha256sum --check
-          chmod +x "$RUNNER_TEMP/bpr-tools/wp"
-          echo "$RUNNER_TEMP/bpr-tools" >> "$GITHUB_PATH"
-      - name: Verify WP-CLI is available
-        run: wp --info
-      - id: install
-        run: composer install --no-interaction --prefer-dist
-      - id: platform
-        run: composer check-platform-reqs
-      - name: Install disposable WordPress
-        env:
-          WP_VERSION: ${{ matrix.wordpress }}
-          WP_MODE: ${{ matrix.mode }}
-          BPR_WP_ROOT: ${{ runner.temp }}/wordpress
-        run: |
-          wp core download --version="$WP_VERSION" --path="$BPR_WP_ROOT"
-          wp config create --path="$BPR_WP_ROOT" --dbname=wordpress_test --dbuser=root --dbpass=root --dbhost=127.0.0.1:3306
-          wp config set BPR_TESTING true --raw --path="$BPR_WP_ROOT"
-          wp config set WP_ENVIRONMENT_TYPE local --path="$BPR_WP_ROOT"
-          if [ "$WP_MODE" = multisite ]; then
-            wp core multisite-install --path="$BPR_WP_ROOT" --url=http://bpr.test --title=Tests --admin_user=testadmin --admin_password=disposable-test-password --admin_email=admin@example.test --skip-email
-          else
-            wp core install --path="$BPR_WP_ROOT" --url=http://bpr.test --title=Tests --admin_user=testadmin --admin_password=disposable-test-password --admin_email=admin@example.test --skip-email
-          fi
-      - name: Record installed test environment
-        run: |
-          mkdir -p reports
-          php -r 'echo PHP_VERSION;' > reports/php-version.txt
-          wp core version --path="$BPR_WP_ROOT" > reports/wordpress-version.txt
-        env:
-          BPR_WP_ROOT: ${{ runner.temp }}/wordpress
-      - id: tests
-        run: composer test -- --log-junit reports/junit.xml
-        env:
-          BPR_WP_ROOT: ${{ runner.temp }}/wordpress
-      - name: Record integration results
-        if: ${{ always() }}
-        env:
-          CI_STEPS: ${{ toJSON(steps) }}
-          CI_JOB_STATUS: ${{ job.status }}
-          CI_PHP: ${{ matrix.php }}
-          CI_WORDPRESS: ${{ matrix.wordpress }}
-          CI_MODE: ${{ matrix.mode }}
-        run: python3 .github/scripts/ci-report.py record integration
-      - name: Upload integration report
-        if: ${{ always() }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: ci-data-integration-${{ matrix.wordpress }}-${{ matrix.php }}-${{ matrix.mode }}
-          path: reports/
-          if-no-files-found: error
-          retention-days: 14
-          overwrite: true
+          wordpress: ${{ matrix.wordpress }}
+          php: ${{ matrix.php }}
+          mode: ${{ matrix.mode }}
 
   plugin-check:
     name: WordPress Plugin Check
