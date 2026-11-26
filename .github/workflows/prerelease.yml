@@ -1,0 +1,78 @@
+name: WordPress pre-release compatibility
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '43 6 * * 1'
+
+# Separate from release.yml: no deployment environment, credentials or publication.
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    name: RC WordPress ${{ matrix.wordpress }} / PHP ${{ matrix.php }} / ${{ matrix.mode }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { php: '8.2', wordpress: '7.2-RC3', mode: single }
+          - { php: '8.4', wordpress: '7.2-RC3', mode: single }
+          - { php: '8.6', wordpress: '7.2-RC3', mode: single }
+          - { php: '8.4', wordpress: '7.2-RC3', mode: multisite }
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wordpress_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -proot"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run WordPress integration suite
+        uses: ./.github/actions/wordpress-tests
+        with:
+          wordpress: ${{ matrix.wordpress }}
+          php: ${{ matrix.php }}
+          mode: ${{ matrix.mode }}
+          profile: prerelease
+          artifact-prefix: prerelease-data
+
+  summary:
+    name: Pre-release results overview
+    if: ${{ always() }}
+    needs: integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: prerelease-data-*
+          path: reports/collected
+      - name: Publish pre-release compatibility overview
+        if: ${{ always() }}
+        env:
+          CI_NEEDS: ${{ toJSON(needs) }}
+        run: python3 .github/scripts/ci-report.py summary --profile prerelease
+      - name: Upload combined report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: prerelease-report
+          path: reports/
+          if-no-files-found: error
+          retention-days: 14
+          overwrite: true

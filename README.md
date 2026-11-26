@@ -34,6 +34,7 @@ Before enabling immediate invalidation, test mail and both modes on a staging co
 | Workflow | Trigger | Purpose |
 | --- | --- | --- |
 | Quality and security | Pull requests, master pushes, weekly, manual, release prerequisite | PHP lint, WordPress coding standards, PHP compatibility, dependency audit, metadata consistency, package build, real WordPress integration tests, official Plugin Check |
+| WordPress pre-release compatibility | Pull requests, master pushes, weekly, manual | Security/integration suite against an explicitly pinned WordPress RC, including PHP 8.6 and multisite, with its own results overview; independent of release publication |
 | Dependency updates | Weekly through Dependabot | Composer and pinned GitHub Actions updates |
 | Plugin readme preview | Public pull requests | Joost de Valk's listing preview and preflight comment; no PR checkout or code execution |
 | Release plugin | Numeric `MAJOR.MINOR.PATCH` Git tag; manual preview | Reruns CI and verifies reviewed source. Tags publish a GitHub Release with changelog notes, the tested plugin ZIP and checksum. SVN uploads run only when enabled; manual runs preview both destinations. |

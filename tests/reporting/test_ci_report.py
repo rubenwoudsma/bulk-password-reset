@@ -30,18 +30,19 @@ class ReportTest(unittest.TestCase):
         self.addCleanup(self.env.stop)
         self.needs = {key: {"result": "success"} for key in ("quality", "integration", "plugin-check")}
 
-    def fixture(self):
-        base = {"schema": 1, "sha": "abc123", "run_id": "42", "status": "success", "report_errors": []}
+    def fixture(self, profile="stable"):
+        base = {"schema": 1, "profile": profile, "sha": "abc123", "run_id": "42", "status": "success", "report_errors": []}
         quality = dict(base, kind="quality", checks={key: "success" for key in REPORT.QUALITY_CHECKS},
                        audit={"advisories": 0, "abandoned": 0}, packages=[],
                        package_url="https://github.com/example/plugin/actions/runs/42/artifacts/7")
-        REPORT.write_json(self.directory / "collected/quality/result.json", quality)
-        REPORT.write_json(self.directory / "collected/plugin/result.json",
-                          dict(base, kind="plugin-check", checks={"plugin_check": "success"}))
-        for number, matrix in enumerate(REPORT.MATRIX):
+        if profile == "stable":
+            REPORT.write_json(self.directory / "collected/quality/result.json", quality)
+            REPORT.write_json(self.directory / "collected/plugin/result.json",
+                              dict(base, kind="plugin-check", checks={"plugin_check": "success"}))
+        for number, matrix in enumerate(REPORT.MATRICES[profile]):
             report = dict(base, kind="integration", matrix=matrix,
                           checks={key: "success" for key in ("install", "platform", "tests")},
-                          versions={"wordpress": "6.8" if number == 0 else "7.1.5", "php": matrix[1] + ".1"},
+                          versions={"wordpress": "7.1.5" if matrix[0] == "latest" else matrix[0], "php": matrix[1] + ".1"},
                           tests={"tests": 3, "passed": 2, "failures": 0, "errors": 0, "skipped": 1, "assertions": 7})
             REPORT.write_json(self.directory / f"collected/integration-{number}/result.json", report)
 
@@ -51,9 +52,9 @@ class ReportTest(unittest.TestCase):
         change(data)
         REPORT.write_json(path, data)
 
-    def summarize(self):
+    def summarize(self, profile="stable"):
         with contextlib.redirect_stdout(io.StringIO()):
-            code = REPORT.summarize(self.directory, self.needs)
+            code = REPORT.summarize(self.directory, self.needs, profile)
         return code, REPORT.load_json(self.directory / "overview.json"), (self.directory / "overview.md").read_text(encoding="utf-8")
 
     def test_complete_matrix_totals_and_native_summary(self):
@@ -148,6 +149,77 @@ class ReportTest(unittest.TestCase):
         self.assertNotIn("[link]", text)
         self.assertNotIn("javascript:", text)
         self.assertIn("&lt;script&gt;&#124;&#91;link&#93;", text)
+
+    def test_prerelease_summary_has_its_own_matrix_and_scope(self):
+        self.fixture("prerelease")
+        self.needs = {"integration": {"result": "success"}}
+        code, data, text = self.summarize("prerelease")
+        self.assertEqual(0, code)
+        self.assertEqual("prerelease", data["profile"])
+        self.assertEqual(4, data["environments_reported"])
+        self.assertEqual(8, data["totals"]["passed"])
+        self.assertIn("4/4 environments", text)
+        self.assertIn("7.2-RC3 / 8.6 / single", text)
+        self.assertIn("pre-release compatibility only", text)
+        self.assertIn("**prerelease-report**", text)
+        self.assertNotIn("Official WordPress Plugin Check | ✅", text)
+        self.assertNotIn("Missing report", text)
+
+    def test_missing_prerelease_environment_fails_with_partial_evidence(self):
+        self.fixture("prerelease")
+        (self.directory / "collected/integration-2/result.json").unlink()
+        code, data, text = self.summarize("prerelease")
+        self.assertEqual(1, code)
+        self.assertEqual(3, data["environments_reported"])
+        self.assertIn("3/4 environments", text)
+        self.assertIn("Missing report: ('7.2-RC3', '8.6', 'single')", text)
+
+    def test_wrong_profile_is_rejected_even_with_matching_run_identity(self):
+        self.fixture("prerelease")
+        self.alter("integration-0", lambda data: data.update(profile="stable"))
+        code, data, text = self.summarize("prerelease")
+        self.assertEqual(1, code)
+        self.assertEqual(3, data["environments_reported"])
+        self.assertIn("Invalid report identity", text)
+
+    def test_stable_reports_cannot_satisfy_prerelease_checks(self):
+        self.fixture()
+        code, data, text = self.summarize("prerelease")
+        self.assertEqual(1, code)
+        self.assertEqual(0, data["environments_reported"])
+        self.assertIn("0/4 environments", text)
+
+    def test_unexpected_installed_versions_cannot_pass(self):
+        for profile, version in (("prerelease", {"wordpress": "7.1.5"}),
+                                 ("prerelease", {"php": "8.5.1"}),
+                                 ("stable", {"wordpress": "7.2-RC3"})):
+            with self.subTest(profile=profile, version=version):
+                self.fixture(profile)
+                number = 2 if profile == "prerelease" else 1
+                self.alter(f"integration-{number}", lambda data: data["versions"].update(version))
+                code, _, text = self.summarize(profile)
+                self.assertEqual(1, code)
+                self.assertIn("Installed versions do not match", text)
+
+    def test_failed_prerelease_github_job_is_not_a_pass(self):
+        self.fixture("prerelease")
+        self.needs = {"integration": {"result": "failure"}}
+        code, _, text = self.summarize("prerelease")
+        self.assertEqual(1, code)
+        self.assertIn("GitHub job integration: failure", text)
+
+    def test_record_keeps_prerelease_profile_and_installed_versions(self):
+        (self.directory / "wordpress-version.txt").write_text("7.2-RC3\n", encoding="utf-8")
+        (self.directory / "php-version.txt").write_text("8.6.0", encoding="utf-8")
+        (self.directory / "junit.xml").write_text('<testsuite><testcase assertions="1"/></testsuite>', encoding="utf-8")
+        with patch.dict(os.environ, {"CI_STEPS": json.dumps({key: {"outcome": "success"}
+                                    for key in ("install", "platform", "tests")}), "CI_JOB_STATUS": "success",
+                                    "CI_WORDPRESS": "7.2-RC3", "CI_PHP": "8.6", "CI_MODE": "single"}):
+            REPORT.record("integration", self.directory, "prerelease")
+        result = REPORT.load_json(self.directory / "result.json")
+        self.assertEqual("prerelease", result["profile"])
+        self.assertEqual({"wordpress": "7.2-RC3", "php": "8.6.0"}, result["versions"])
+        self.assertFalse(result["report_errors"])
 
     def test_nested_junit_suites_are_not_double_counted(self):
         path = self.directory / "junit.xml"

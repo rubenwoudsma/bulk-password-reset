@@ -17,6 +17,12 @@ A manual release preview also produces **github-release-candidate** (ZIP, notes,
 
 The published GitHub Release keeps its changelog notes, plugin ZIP and checksum beyond the Actions artifact retention period. Repository-only documentation or fixture cleanup does not require a new plugin release.
 
+## Pre-release compatibility results
+
+The [WordPress pre-release compatibility](../.github/workflows/prerelease.yml) workflow has its own **Pre-release results overview** and **prerelease-report** artifact. It runs the existing integration/security suite on four explicit RC/PHP environments, including PHP 8.6 and multisite. The same installer/test action is used by stable CI. The report records requested and installed versions, checks their agreement, validates run/profile identity and reports failures or missing evidence as failures. It does not repeat or claim a pass for coding standards, dependency audit, packaging or Plugin Check; inspect **Quality and security** for those results.
+
+Pre-release checks are separate from the release prerequisites and do not change required branch checks. A passing RC suite establishes the automated behavior tested on that RC, not a completed manual acceptance review or compatibility with the eventual final release. See [the development guide](../CONTRIBUTING.md#wordpress-pre-release-testing) and [issue #14](https://github.com/rubenwoudsma/bulk-password-reset/issues/14) for the remaining release-readiness work. These checks have no deployment secrets or publication steps.
+
 ## Tests and sample data
 
 `tests/SecurityTest.php` exercises real WordPress behavior on a disposable installation, including authorization, nonces, per-target protections, reset links, both reset modes, sessions, mail failures, durable checkpoints, concurrency, cancellation, multisite and resumable batches. Boundary cases include 1, 19, 20, 21 and 40 users and an untouched look-ahead recipient.

@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import sys
 import xml.etree.ElementTree as ET
@@ -32,6 +33,15 @@ MATRIX = [
     ("latest", "8.5", "single"),
     ("latest", "8.4", "multisite"),
 ]
+MATRICES = {
+    "stable": MATRIX,
+    "prerelease": [
+        ("7.2-RC3", "8.2", "single"),
+        ("7.2-RC3", "8.4", "single"),
+        ("7.2-RC3", "8.6", "single"),
+        ("7.2-RC3", "8.4", "multisite"),
+    ],
+}
 STATUSES = {"success", "failure", "cancelled", "skipped"}
 
 
@@ -71,11 +81,11 @@ def junit_counts(path):
     return counts
 
 
-def record(kind, directory):
+def record(kind, directory, profile="stable"):
     directory.mkdir(parents=True, exist_ok=True)
     steps = json.loads(os.environ.get("CI_STEPS", "{}"))
     report = {
-        "schema": 1, "kind": kind, "sha": os.environ.get("GITHUB_SHA", ""),
+        "schema": 1, "kind": kind, "profile": profile, "sha": os.environ.get("GITHUB_SHA", ""),
         "run_id": os.environ.get("GITHUB_RUN_ID", ""),
         "status": os.environ.get("CI_JOB_STATUS", "unknown"),
         "checks": {}, "report_errors": [],
@@ -132,41 +142,45 @@ def status(value):
             "skipped": "⚪ Skipped", "not run": "⚪ Not run"}.get(value, "⚠️ Not reported")
 
 
-def summarize(directory, needs):
+def summarize(directory, needs, profile="stable"):
+    matrix_entries = MATRICES[profile]
+    stable = profile == "stable"
+    kinds = {"quality", "integration", "plugin-check"} if stable else {"integration"}
     records, problems = {}, []
     for path in sorted((directory / "collected").rglob("result.json")):
         try:
             report = load_json(path)
-            if (report["schema"] != 1 or report["kind"] not in {"quality", "integration", "plugin-check"}
+            if (report["schema"] != 1 or report["kind"] not in kinds or report["profile"] != profile
                     or report["sha"] != os.environ.get("GITHUB_SHA", "")
                     or report["run_id"] != os.environ.get("GITHUB_RUN_ID", "")
                     or report["status"] not in STATUSES or not isinstance(report["checks"], dict)
                     or not isinstance(report["report_errors"], list)):
                 raise ValueError("Invalid report identity or fields")
             key = tuple(report["matrix"]) if report["kind"] == "integration" else report["kind"]
-            if key in records or (isinstance(key, tuple) and key not in MATRIX):
+            if key in records or (isinstance(key, tuple) and key not in matrix_entries):
                 raise ValueError("Duplicate or unexpected report")
             records[key] = report
             problems.extend(str(error) for error in report["report_errors"])
         except (OSError, ValueError, TypeError, KeyError) as error:
             problems.append(f"Cannot use {path.parent.name}/result.json: {error}")
-    expected = ["quality", *MATRIX, "plugin-check"]
+    expected = ["quality", *matrix_entries, "plugin-check"] if stable else matrix_entries
     for key in expected:
         if key not in records:
             problems.append(f"Missing report: {key}")
         elif records[key]["status"] != "success":
             problems.append(f"Check did not succeed: {key}")
-    for key in ("quality", "integration", "plugin-check"):
+    for key in kinds:
         if needs.get(key, {}).get("result") != "success":
             problems.append(f"GitHub job {key}: {needs.get(key, {}).get('result', 'not reported')}")
     quality, plugin = records.get("quality", {}), records.get("plugin-check", {})
-    for report, required in ((quality, QUALITY_CHECKS), (plugin, ("plugin_check",))):
+    required_reports = ((quality, QUALITY_CHECKS), (plugin, ("plugin_check",))) if stable else ()
+    for report, required in required_reports:
         for key in required:
             if report.get("checks", {}).get(key) != "success":
                 problems.append(f"Required check did not succeed: {key}")
     totals = dict(tests=0, passed=0, failures=0, errors=0, skipped=0, assertions=0)
     rows, available = [], 0
-    for matrix in MATRIX:
+    for matrix in matrix_entries:
         report = records.get(matrix, {})
         tests = report.get("tests")
         valid = (isinstance(tests, dict) and all(type(tests.get(key)) is int and tests[key] >= 0 for key in totals)
@@ -185,6 +199,13 @@ def summarize(directory, needs):
         versions = report.get("versions", {})
         if not all(versions.get(key) for key in ("wordpress", "php")):
             problems.append(f"Installed versions not recorded: {matrix}")
+        else:
+            wordpress, php = versions["wordpress"], versions["php"]
+            if (not isinstance(wordpress, str) or not isinstance(php, str)
+                    or not php.startswith(matrix[1] + ".")
+                    or (matrix[0] == "latest" and not re.fullmatch(r"\d+\.\d+(?:\.\d+)?", wordpress))
+                    or (matrix[0] != "latest" and wordpress != matrix[0])):
+                problems.append(f"Installed versions do not match the requested environment: {matrix}")
         environment = f"{cell(matrix[0])} / {cell(matrix[1])} / {cell(matrix[2])}"
         values = [environment, cell(versions.get("wordpress")), cell(versions.get("php")),
                   status(report.get("status"))]
@@ -193,42 +214,52 @@ def summarize(directory, needs):
     success = not problems
     server = os.environ.get("GITHUB_SERVER_URL", "https://github.com")
     run_url = f"{server}/{os.environ.get('GITHUB_REPOSITORY', '')}/actions/runs/{os.environ.get('GITHUB_RUN_ID', '')}"
-    lines = ["# Bulk Password Reset — test and security overview", "",
+    title = "test and security overview" if stable else "pre-release compatibility overview"
+    lines = [f"# Bulk Password Reset — {title}", "",
              "**✅ All checks passed.**" if success else "**❌ Checks failed or results are incomplete. See the details below.**", "",
              f"Revision: `{cell(os.environ.get('GITHUB_SHA', ''))}` · [Open run and job logs]({run_url})", "",
              "## Test environments", "", "Database: MySQL 8.0. Versions below are recorded from each installed environment.", "",
              "| Requested WordPress / PHP / mode | Installed WordPress | Installed PHP | Result | Passed | Failures | Errors | Skipped | Assertions |",
              "| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: |", *rows, "",
-             f"Available results: **{available}/{len(MATRIX)} environments**. Test executions across these environments: "
+             f"Available results: **{available}/{len(matrix_entries)} environments**. Test executions across these environments: "
              f"**{totals['passed']} passed, {totals['failures']} failures, {totals['errors']} errors, "
              f"{totals['skipped']} skipped; {totals['assertions']} assertions**.", "",
-             "The same suite runs in each environment; totals count repeated executions. Multisite-only cases are skipped on single sites.", "",
-             "## Quality and security checks", "", "| Check | Result |", "| --- | --- |"]
-    for key, label in QUALITY_CHECKS.items():
-        lines.append(f"| {label} | {status(quality.get('checks', {}).get(key))} |")
-    lines += [f"| Official WordPress Plugin Check | {status(plugin.get('checks', {}).get('plugin_check'))} |", ""]
-    if "audit" in quality:
-        lines.append(f"Dependency audit: **{cell(quality['audit'].get('advisories'))} known advisories**, "
-                     f"**{cell(quality['audit'].get('abandoned'))} abandoned packages**. This audits locked development dependencies.")
+             "The same suite runs in each environment; totals count repeated executions. Multisite-only cases are skipped on single sites.", ""]
+    if stable:
+        lines += ["## Quality and security checks", "", "| Check | Result |", "| --- | --- |"]
+        for key, label in QUALITY_CHECKS.items():
+            lines.append(f"| {label} | {status(quality.get('checks', {}).get(key))} |")
+        lines += [f"| Official WordPress Plugin Check | {status(plugin.get('checks', {}).get('plugin_check'))} |", ""]
+        if "audit" in quality:
+            lines.append(f"Dependency audit: **{cell(quality['audit'].get('advisories'))} known advisories**, "
+                         f"**{cell(quality['audit'].get('abandoned'))} abandoned packages**. This audits locked development dependencies.")
+        else:
+            lines.append("Dependency audit counts are unavailable; see its check result and job log.")
     else:
-        lines.append("Dependency audit counts are unavailable; see its check result and job log.")
+        lines += ["This run tests pre-release compatibility only. The separate **Quality and security** workflow "
+                  "reports stable/minimum-version coverage, coding standards, dependency audit, packaging and Plugin Check. "
+                  "Those checks are not repeated or certified by this overview.", "",
+                  "RC results do not replace final WordPress release testing, manual admin checks or a compatibility declaration."]
+    artifact = "ci-report" if stable else "prerelease-report"
     lines += ["", "These automated checks do not constitute a full security audit or WordPress.org approval.", "",
               "## Package and downloadable reports", "",
-              "Download **ci-report** from this run's Artifacts section for this overview, combined JSON, "
-              "per-environment JUnit XML, dependency-audit JSON, and available Plugin Check output. Reports are retained for 14 days.", ""]
+              f"Download **{artifact}** from this run's Artifacts section for this overview, combined JSON and "
+              "per-environment JUnit XML" + (", dependency-audit JSON, and available Plugin Check output" if stable else "")
+              + ". Reports are retained for 14 days.", ""]
     package_url = quality.get("package_url", "")
     if isinstance(package_url, str) and package_url.startswith(run_url + "/artifacts/") and package_url[len(run_url + "/artifacts/"):].isdigit():
         lines.append(f"[Download the installable plugin package]({package_url}) (GitHub sign-in may be required).")
     for package in quality.get("packages", []):
         lines += ["", f"Package: **{cell(package.get('name'))}** · {cell(package.get('bytes'))} bytes",
                   f"SHA256: `{cell(package.get('sha256'))}`"]
-    lines += ["", "Build artifacts are for review. Use a package only after checking this run's results. This workflow does not publish to WordPress.org."]
+    lines += ["", "Build artifacts are for review. Use a package only after checking the relevant run's results. "
+              "This report does not authorize a release or WordPress.org upload."]
     if problems:
         lines += ["", "## Failures and missing evidence", ""] + [f"- {cell(problem)}" for problem in problems]
     markdown = "\n".join(lines) + "\n"
     directory.mkdir(parents=True, exist_ok=True)
     (directory / "overview.md").write_text(markdown, encoding="utf-8")
-    write_json(directory / "overview.json", {"success": success, "run_url": run_url,
+    write_json(directory / "overview.json", {"success": success, "profile": profile, "run_url": run_url,
                "sha": os.environ.get("GITHUB_SHA", ""), "environments_reported": available,
                "totals": totals, "problems": problems, "reports": list(records.values())})
     if os.environ.get("GITHUB_STEP_SUMMARY"):
@@ -243,13 +274,14 @@ def main():
     parser.add_argument("command", choices=("record", "summary"))
     parser.add_argument("kind", nargs="?", choices=("quality", "integration", "plugin-check"))
     parser.add_argument("--directory", type=Path, default=Path("reports"))
+    parser.add_argument("--profile", choices=tuple(MATRICES), default="stable")
     args = parser.parse_args()
     if args.command == "record":
         if not args.kind:
             parser.error("record requires a report kind")
-        record(args.kind, args.directory)
+        record(args.kind, args.directory, args.profile)
         return 0
-    return summarize(args.directory, json.loads(os.environ.get("CI_NEEDS", "{}")))
+    return summarize(args.directory, json.loads(os.environ.get("CI_NEEDS", "{}")), args.profile)
 
 
 if __name__ == "__main__":
