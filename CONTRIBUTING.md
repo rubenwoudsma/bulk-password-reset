@@ -25,6 +25,8 @@ Composer resolves development dependencies for PHP 8.2.0 through `config.platfor
 
 PHPUnit remains on the PHP 8.2-compatible 11.x line. Dependabot still proposes compatible minor/patch updates, while PHPUnit major upgrades require a deliberate compatibility review. Do not raise the plugin's PHP minimum just to accommodate a test-tool update. CI installs WP-CLI 2.12.0 from its official release asset with a fixed SHA256 and bounded download retries; update both version and checksum when changing that tool.
 
+Core installation uses WP-CLI's `--quiet` option to avoid its pinned color helper's null-offset deprecation on PHP 8.5+. This skips the informational success message; it does not disable PHP error reporting or WP-CLI warnings/errors. Raw setup diagnostics remain in the debug log and job output, and every non-probe debug line still fails the report. Remove this workaround when a verified WP-CLI release fixes the helper.
+
 ## Integration tests
 
 Tests run against **real WordPress**, using a disposable installed site rather than mocked WordPress functions. They create and delete users and change their passwords. Never point them at a production site.
