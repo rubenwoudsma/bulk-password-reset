@@ -35,7 +35,7 @@ class GithubReleaseTest(unittest.TestCase):
                           f"= {FIXTURE_VERSION} =\n* Secure reset links.\n* Protect privileged accounts.\n\n= 9.8.6 =\n* Historical release.\n\n"
                           f"== Upgrade Notice ==\n= {FIXTURE_VERSION} =\nReview settings.\n",
             "uninstall.php": "<?php // cleanup\n", "LICENSE": "GPL-2.0-or-later\n",
-            "assets/admin.css": ".plugin {}\n", "assets/ruben-woudsma-logo.png": "fixture-logo",
+            "assets/admin.css": ".plugin {}\n", "assets/email-settings.js": "/* fixture picker */\n", "assets/ruben-woudsma-logo.png": "fixture-logo",
             "assets/plugin-icon.png": "fixture-plugin-icon",
             "includes/class-service.php": "<?php // service\n", "languages/bulk-password-reset.pot": "fixture catalog\n",
         }

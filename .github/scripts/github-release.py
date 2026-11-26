@@ -67,7 +67,7 @@ def package_files(package):
 
 def source_files(workspace):
     paths = ["bulk_password_reset.php", "uninstall.php", "readme.txt", "LICENSE",
-             "assets/admin.css", "assets/ruben-woudsma-logo.png", "assets/plugin-icon.png"]
+             "assets/admin.css", "assets/email-settings.js", "assets/ruben-woudsma-logo.png", "assets/plugin-icon.png"]
     for directory in ("includes", "languages"):
         for path in (workspace / directory).rglob("*"):
             if path.is_symlink():

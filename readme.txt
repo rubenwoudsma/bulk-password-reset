@@ -4,7 +4,7 @@ Tags: password reset, reset password, users, user role, bulk
 Requires at least: 6.8
 Tested up to: 7.1
 Requires PHP: 8.2
-Stable tag: 2.0.2
+Stable tag: 2.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -32,6 +32,8 @@ Immediate invalidation cannot be undone. If email fails, the password still chan
 * Batches of up to 20 selected users per request, with no total user limit or paid tier. Click Continue to run each next batch; no background worker or cron is required.
 * Resume a job for 48 hours. One active job per site; only its originating administrator can run or cancel it.
 * Optional plain-text email note and user-locale support.
+* Plain-text emails by default, or optional HTML emails with a reset button and your site's logo.
+* Safe email previews and a nonfunctional test message sent only to your own profile address.
 * A light, responsive admin layout with clear steps, reset-mode cards, and progress reports.
 * WordPress reset-key generation, hashing, expiration and single-use validation.
 * Per-request operator permissions and per-account edit checks.
@@ -47,7 +49,7 @@ Only super administrators can use this tool on multisite. Selection is limited t
 
 = Privacy =
 
-WordPress sends mail to the account's existing email address through your site's mail configuration. The plugin stores one site's latest job, its administrator ID, selected roles or user IDs, optional note, progress and aggregate counts in a non-autoloaded database option. It does not store plaintext passwords, reset links, or reset keys in job data or public log files. WordPress stores the hashed reset key in its own user record.
+WordPress sends mail to the account's existing email address through your site's mail configuration. The plugin stores one site's latest job, its administrator ID, selected roles or user IDs, optional note, confirmed email format/logo ID, progress and aggregate counts in a non-autoloaded database option. Site-local email preferences are stored separately and removed on uninstall. It does not store plaintext passwords, reset links, or reset keys in job data or public log files. WordPress stores the hashed reset key in its own user record. Optional logos use a static Media Library image URL, which an email client may request; no recipient-specific image URL or tracking pixel is added.
 
 An unfinished reset expires after 48 hours and cannot then be resumed. The latest results retain up to 100 user IDs with failed resets and 100 with unknown outcomes for review. Completed and cancelled results keep their status after the resume deadline. Results are replaced by the next preview or deleted on uninstall; opening the chooser does not erase them. Existing log files from older plugin versions are not automatically removed; administrators should inspect and remove them. No data is sent to the plugin author.
 
@@ -86,6 +88,12 @@ Sending reset links leaves existing passwords working. Choose immediate invalida
 
 No. Shared passwords, configurable reset keys and plaintext password emails from older versions have been removed.
 
+= Can I add my site's logo and use HTML reset emails? =
+
+Yes. Open Users > Bulk Password Reset > Email settings. Plain text remains the default. Choose HTML and optionally use the configured site logo or a public PNG, JPEG or GIF from the Media Library. The site name and reset link remain usable without images. Save, review both mode examples and send a nonfunctional test to your own profile address before creating a real reset preview. Settings are captured when a bulk-reset preview is created; existing jobs, including jobs from older versions, keep their original format.
+
+The plugin uses your existing WordPress mail configuration. Standard PHPMailer/SMTP mail includes HTML and a readable plain-text alternative. API providers that bypass PHPMailer receive the HTML body and content-type header and control their own MIME alternatives. Check delivery and rendering through your provider. Native WordPress retrieve_password_title and retrieve_password_message filters are not called by this plugin; this preserves the existing behaviour. Normal wp_mail and sender/transport hooks remain available.
+
 = What does a successful email count mean? =
 
 It means WordPress accepted the email for sending, not that it arrived. Check your mail provider for delivery problems. A subsequent WordPress password-reset request can supersede an earlier link.
@@ -99,6 +107,12 @@ Progress is saved before each account is processed. An account with an uncertain
 The old settings, including stored shared passwords and custom keys, are deleted when an authorized administrator next opens WordPress administration or activates the plugin. New jobs start in link mode. The legacy plugin entry-point filename is retained so existing installations remain activated. Old translation files and the old reset handlers are replaced.
 
 == Changelog ==
+
+= 2.1.0 =
+* Add optional HTML reset emails with a clear reset button, copyable link and plain-text alternative through standard PHPMailer mail.
+* Add site-logo or Media Library image branding, with accessible text when images are unavailable.
+* Add protected email settings, nonfunctional previews and test mail restricted to the current administrator's profile address.
+* Capture email preferences per job; preserve plain-text formatting for jobs created before this feature.
 
 = 2.0.2 =
 * Preserve usernames ending in a period when reset links are made clickable, in both reset modes.

@@ -84,6 +84,16 @@ wp option delete bpr_job_lock --url=https://the-affected-site.example
 
 The plugin never automatically steals a lock from a possibly active sender. Completed resets cannot be rolled back. A mail failure after immediate invalidation leaves the password changed; use the account's normal WordPress recovery flow after fixing mail.
 
+## Email templates and transport checks
+
+Email preferences are site-local in `bpr_email_settings`. `Email_Settings` validates the format and public Media Library image, `Email` renders/sends, and `Email_View` provides protected preferences and fictional examples. `Service` retains all recipient authorization and native reset-key operations. `Jobs` snapshots format/image ID at preview; older stored jobs without that field remain plain text. Uninstall removes the preferences on each network site.
+
+`EmailTest.php` covers settings validation, POST/nonce/permission checks, safe examples, image validation, job snapshots, locales, multisite and actual core recovery in both formats and modes. `EmailTransportTest.php` builds real PHPMailer MIME with a transport that never delivers, checks multipart alternatives and sender/SMTP hooks, and checks HTML → plain → unrelated mail plus failure/short-circuit cleanup. Tests and fixtures must use synthetic addresses and must never retain real reset URLs from production.
+
+HTML uses per-message Content-Type headers and a temporary, scoped `phpmailer_init` callback for the plain alternative. Its matching header is removed before standard PHPMailer delivery; the callback is removed in `finally`, including failures and API short circuits. API adapters that bypass PHPMailer own MIME alternatives. No transport, From address or SMTP credential is configured by this plugin. The existing absence of native `retrieve_password_title` / `retrieve_password_message` calls is intentional; use the ordinary WordPress mail/sender/transport hooks. Arbitrary template editing is outside the feature.
+
+Before publication, inspect the saved previews and send samples through the site's actual mail provider. Check HTML/plain text, both reset modes, a trailing-period username, note escaping/Unicode, missing/blocked images, narrow screens and RTL. Exercise Outlook, Gmail and Apple Mail where available; browser screenshots and a local SMTP sink verify structure/MIME, not every client's rendering or real-world inbox placement.
+
 ## Translations
 
 Use consistent user-facing terms: **user** for a WordPress user (Dutch: gebruiker), **account** for credentials and access (gebruikersaccount), **recipient** for someone selected to receive a reset email (ontvanger), and **administrator** for the person operating the tool (beheerder). Preview counts include protected users, so label them as selected users rather than promising a recipient count. Keep `owner` as an internal job field; on screen, say the administrator who started the reset.
