@@ -334,9 +334,28 @@ final class View {
 			<div class="bpr-report-footnote"><p><?php esc_html_e( 'Accepted for sending does not guarantee delivery. Users with an unknown outcome are not retried automatically; review them separately. No passwords or reset links are stored in this report.', 'bulk-password-reset' ); ?></p></div>
 			<?php if ( $review_ids ) : ?>
 				<div class="bpr-review-accounts"><h3><?php esc_html_e( 'Users to review', 'bulk-password-reset' ); ?></h3><p><?php esc_html_e( 'Up to 100 users with failed resets and 100 users with unknown outcomes are listed here.', 'bulk-password-reset' ); ?></p><ul>
-					<?php foreach ( $review_ids as $review_id ) : ?>
-						<?php $user = get_user_by( 'id', $review_id ); ?>
-						<li><a href="<?php echo esc_url( get_edit_user_link( $review_id ) ); ?>"><?php echo esc_html( $user ? $user->user_login : (string) $review_id ); ?></a> (<?php echo esc_html( (string) $review_id ); ?>)</li>
+					<?php
+					$review_users = get_users(
+						array(
+							'blog_id' => 0,
+							'include' => $review_ids,
+							'fields'  => array( 'ID', 'user_login' ),
+						)
+					);
+					$users_by_id  = array_column( $review_users, null, 'ID' );
+					foreach ( $review_ids as $review_id ) :
+						$user      = isset( $users_by_id[ $review_id ] ) ? $users_by_id[ $review_id ] : null;
+						$label     = $user ? $user->user_login : (string) $review_id;
+						$edit_link = get_edit_user_link( $review_id );
+						?>
+						<li>
+							<?php if ( $edit_link ) : ?>
+								<a href="<?php echo esc_url( $edit_link ); ?>"><?php echo esc_html( $label ); ?></a>
+							<?php else : ?>
+								<?php echo esc_html( $label ); ?>
+							<?php endif; ?>
+							(<?php echo esc_html( (string) $review_id ); ?>)
+						</li>
 					<?php endforeach; ?>
 				</ul></div>
 			<?php endif; ?>

@@ -120,11 +120,17 @@ final class Email_Settings {
 			}
 		}
 		$image = wp_get_attachment_image_src( $id, 'medium' );
-		if ( ! $image || ! $image[1] || ! $image[2] ) {
+		if ( ! $image || ! $image[1] || ! $image[2] || ! is_string( $image[0] ) ) {
 			return null;
 		}
-		$url = esc_url_raw( $image[0], array( 'http', 'https' ) );
-		if ( ! $url ) {
+		$raw = $image[0];
+		if ( str_starts_with( $raw, '/' ) && ! str_starts_with( $raw, '//' ) ) {
+			$raw = home_url( $raw );
+		}
+		$url    = esc_url_raw( $raw, array( 'http', 'https' ) );
+		$scheme = $url ? wp_parse_url( $url, PHP_URL_SCHEME ) : null;
+		$host   = $url ? wp_parse_url( $url, PHP_URL_HOST ) : null;
+		if ( ! $url || ! is_string( $host ) || '' === $host || ! in_array( $scheme, array( 'http', 'https' ), true ) ) {
 			return null;
 		}
 		$scale = min( 1, 180 / $image[1], 72 / $image[2] );

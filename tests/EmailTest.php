@@ -216,6 +216,47 @@ final class EmailTest extends TestCase
         self::assertSame('logo', Email_Settings::save(['format'=>'html','logo'=>'custom','logo_id'=>$id])->get_error_code());
     }
 
+    public function testRootRelativeImageUrlIsResolvedAndProtocolRelativeUrlsAreRejected(): void
+    {
+        $id = $this->image();
+        $override = '/wp-content/uploads/2026/11/relative-logo.png';
+        $this->filter('wp_get_attachment_image_src', static function () use (&$override) {
+            return [$override, 320, 120, false];
+        });
+        $resolved = Email_Settings::image($id);
+        self::assertNotNull($resolved);
+        self::assertSame(home_url('/wp-content/uploads/2026/11/relative-logo.png'), $resolved['url']);
+        foreach (['//evil.example.test/logo.png', '///evil.example.test/logo.png'] as $bad) {
+            $override = $bad;
+            self::assertNull(Email_Settings::image($id));
+        }
+    }
+
+    public function testMissingSiteLogoShowsWarningInHtmlEmailSettings(): void
+    {
+        delete_option('site_logo');
+        $this->settings('html', 'site');
+        ob_start();
+        (new Email_View())->render();
+        $html = ob_get_clean();
+        self::assertStringContainsString('No compatible public PNG, JPEG or GIF site logo is currently configured.', $html);
+    }
+
+    public function testAccountWithoutValidEmailIsNotInvalidated(): void
+    {
+        global $wpdb;
+        $id = $this->user('subscriber');
+        $sessions = WP_Session_Tokens::get_instance($id);
+        $token = $sessions->create(time() + 600);
+        $wpdb->update($wpdb->users, ['user_email' => ''], ['ID' => $id]);
+        clean_user_cache($id);
+        $result = (new Service())->reset_user($id, 'invalidate');
+        self::assertSame(['status' => 'failed', 'invalidated' => false], $result);
+        self::assertTrue(wp_check_password('Original-test-password!', get_userdata($id)->user_pass));
+        self::assertTrue($sessions->verify($token));
+        self::assertSame([], $this->mails);
+    }
+
     public function testNonImageAttachmentIsRejected(): void
     {
         $id = $this->image();

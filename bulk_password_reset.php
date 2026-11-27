@@ -37,7 +37,7 @@ require_once __DIR__ . '/includes/class-admin.php';
  * @return void
  */
 function remove_legacy_settings() {
-	if ( Service::can_manage() ) {
+	if ( Service::can_manage() && false !== get_option( 'bpr_options', false ) ) {
 		delete_option( 'bpr_options' );
 	}
 }

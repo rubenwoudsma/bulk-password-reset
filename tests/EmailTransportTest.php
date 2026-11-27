@@ -75,13 +75,19 @@ final class EmailTransportTest extends TestCase
 
     public function testMailProviderTransportAndSenderHooksArePreserved(): void
     {
+        $observedAltBody = null;
         $this->hook('wp_mail_from', static fn () => 'configured-sender@example.test');
         $this->hook('wp_mail_from_name', static fn () => 'Configured site sender');
-        $this->hook('phpmailer_init', static function ($mailer) { $mailer->isSMTP(); $mailer->Host = 'localhost'; });
+        $this->hook('phpmailer_init', static function ($mailer) use (&$observedAltBody) {
+            $mailer->isSMTP();
+            $mailer->Host = 'localhost';
+            $observedAltBody = $mailer->AltBody;
+        }, 20);
         self::assertTrue(Email::send('recipient@example.test', $this->message()));
         self::assertSame('smtp', $this->mailer->messages[0]['mailer']);
         self::assertSame('configured-sender@example.test', $this->mailer->From);
         self::assertSame('Configured site sender', $this->mailer->FromName);
+        self::assertSame($this->message()['text'], $observedAltBody);
         self::assertSame($this->message()['text'], $this->mailer->messages[0]['text']);
     }
 
@@ -106,7 +112,7 @@ final class EmailTransportTest extends TestCase
         self::assertTrue(Email::send('api@example.test', $this->message()));
         self::assertSame([], $this->mailer->messages);
         self::assertSame($this->message()['html'], $captured[0]['message']);
-        self::assertContains('Content-Type: text/html; charset=UTF-8', $captured[0]['headers']);
+        self::assertSame(['Content-Type: text/html; charset=UTF-8'], $captured[0]['headers']);
         self::assertTrue(wp_mail('unrelated@example.test', 'Unrelated', 'No reset contents'));
         self::assertSame('', $captured[1]['headers']);
     }

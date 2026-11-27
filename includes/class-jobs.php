@@ -62,7 +62,7 @@ final class Jobs {
 	}
 
 	/**
-	 * Serialize all job mutations using the unique option-name database index.
+	 * Serialize job mutations using a non-autoloaded lock option.
 	 * Never steal a lock from a worker that might still be sending email.
 	 *
 	 * @param callable $callback Job operation.

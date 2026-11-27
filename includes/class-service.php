@@ -146,6 +146,10 @@ final class Service {
 		if ( is_wp_error( $allowed ) || ! $allowed ) {
 			return $result;
 		}
+		if ( ! is_email( $user->user_email ) ) {
+			$result['status'] = 'failed';
+			return $result;
+		}
 
 		$switched = switch_to_user_locale( $user->ID );
 		try {
@@ -153,6 +157,11 @@ final class Service {
 				wp_set_password( wp_generate_password( 64, true, true ), $user->ID );
 				\WP_Session_Tokens::get_instance( $user->ID )->destroy_all();
 				$result['invalidated'] = true;
+				$user                  = get_user_by( 'id', $id );
+				if ( ! $user ) {
+					$result['status'] = 'failed';
+					return $result;
+				}
 			}
 			// Generate after wp_set_password(), which clears existing reset keys.
 			$key = get_password_reset_key( $user );

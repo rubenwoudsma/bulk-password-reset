@@ -21,9 +21,15 @@ final class Email_View {
 		if ( ! Service::can_manage() ) {
 			return;
 		}
-		$settings = Email_Settings::get();
-		$image    = Email_Settings::image( $settings['logo_id'] );
+		$settings  = Email_Settings::get();
+		$image     = Email_Settings::image( $settings['logo_id'] );
+		$site_logo = 'site' === $settings['logo'] ? Email_Settings::image( absint( get_theme_mod( 'custom_logo' ) ) ) : null;
 		$this->notice();
+		if ( 'html' === $settings['format'] && 'site' === $settings['logo'] && ! $site_logo ) {
+			?>
+			<div class="notice notice-warning inline"><p><?php esc_html_e( 'No compatible public PNG, JPEG or GIF site logo is currently configured. Emails will show the site name as text instead.', 'bulk-password-reset' ); ?></p></div>
+			<?php
+		}
 		?>
 		<section class="bpr-card bpr-card-body">
 			<h2><?php esc_html_e( 'Reset email settings', 'bulk-password-reset' ); ?></h2>
@@ -39,7 +45,9 @@ final class Email_View {
 					<select name="email[logo]" id="bpr-email-logo" aria-describedby="bpr-logo-help">
 						<option value="none" <?php selected( $settings['logo'], 'none' ); ?>><?php esc_html_e( 'No logo', 'bulk-password-reset' ); ?></option>
 						<option value="site" <?php selected( $settings['logo'], 'site' ); ?>><?php esc_html_e( 'Use the site logo', 'bulk-password-reset' ); ?></option>
-						<option value="custom" <?php selected( $settings['logo'], 'custom' ); ?>><?php esc_html_e( 'Use a selected Media Library image', 'bulk-password-reset' ); ?></option>
+						<?php if ( current_user_can( 'upload_files' ) || 'custom' === $settings['logo'] ) : ?>
+							<option value="custom" <?php selected( $settings['logo'], 'custom' ); ?>><?php esc_html_e( 'Use a selected Media Library image', 'bulk-password-reset' ); ?></option>
+						<?php endif; ?>
 					</select>
 					<p id="bpr-logo-help" class="bpr-help"><?php esc_html_e( 'The site logo is configured in your theme\'s Site Editor or Customizer. Choose a public PNG, JPEG or GIF. If an image is unavailable, emails still show the site name.', 'bulk-password-reset' ); ?></p>
 				</div>

@@ -81,8 +81,8 @@ final class Email {
 <p style="padding:14px;border-inline-start:3px solid #007398;background-color:#f3f6f8;font-size:16px;line-height:1.6;"><?php echo nl2br( esc_html( $note ) ); ?></p>
 			<?php endif; ?>
 <p style="font-size:16px;line-height:1.6;"><?php echo esc_html( $account ); ?></p>
-<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;"><tr><td bgcolor="#006b91" style="border-radius:5px;padding:14px 20px;"><a href="<?php echo esc_url( $url ); ?>" style="display:inline-block;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:underline;line-height:1.5;"><?php esc_html_e( 'Choose a new password', 'bulk-password-reset' ); ?></a></td></tr></table>
-<p style="font-size:14px;line-height:1.6;"><?php esc_html_e( 'If the button does not work, copy this link into your browser:', 'bulk-password-reset' ); ?><br><a href="<?php echo esc_url( $url ); ?>" style="color:#006b91;overflow-wrap:anywhere;word-break:break-all;"><?php echo esc_html( $url ); ?></a></p>
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;"><tr><td bgcolor="#006b91" style="border-radius:5px;"><a href="<?php echo esc_url( $url ); ?>" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:14px 20px;border-radius:5px;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:underline;line-height:1.5;"><?php esc_html_e( 'Choose a new password', 'bulk-password-reset' ); ?></a></td></tr></table>
+<p style="font-size:14px;line-height:1.6;"><?php esc_html_e( 'If the button does not work, copy this link into your browser:', 'bulk-password-reset' ); ?><br><a href="<?php echo esc_url( $url ); ?>" target="_blank" rel="noopener noreferrer" style="color:#006b91;overflow-wrap:anywhere;word-break:break-all;"><?php echo esc_html( $url ); ?></a></p>
 <p style="font-size:14px;line-height:1.6;color:#485c6b;"><?php echo esc_html( $help ); ?></p>
 </td></tr></table>
 <p style="margin:20px 12px;font-size:12px;line-height:1.5;color:#485c6b;"><?php echo esc_html( $site ); ?></p>
@@ -129,24 +129,25 @@ final class Email {
 		if ( '' === $message['html'] ) {
 			return wp_mail( $to, $message['subject'], $message['text'] );
 		}
-		$token   = wp_generate_uuid4();
+		$matched = false;
 		$touched = array();
-		$prepare = static function ( $mailer ) use ( $token, $message, &$touched ) {
-			foreach ( $mailer->getCustomHeaders() as $header ) {
-				if ( 'X-BPR-Email' === $header[0] && hash_equals( $token, $header[1] ) ) {
-					// A temporary matching marker, removed before sending; no tracking.
-					$mailer->clearCustomHeader( 'X-BPR-Email' );
-					$touched[]       = array( $mailer, $mailer->AltBody );
-					$mailer->AltBody = $message['text'];
-					break;
-				}
+		$prepare = static function ( $mailer ) use ( $message, &$matched, &$touched ) {
+			if ( ! $matched && 'text/html' === $mailer->ContentType && $mailer->Body === $message['html'] ) {
+				$matched         = true;
+				$touched[]       = array( $mailer, $mailer->AltBody );
+				$mailer->AltBody = $message['text'];
 			}
 		};
-		add_action( 'phpmailer_init', $prepare, PHP_INT_MAX );
+		add_action( 'phpmailer_init', $prepare, 10 );
 		try {
-			return wp_mail( $to, $message['subject'], $message['html'], array( 'Content-Type: text/html; charset=UTF-8', 'X-BPR-Email: ' . $token ) );
+			return wp_mail(
+				$to,
+				$message['subject'],
+				$message['html'],
+				array( 'Content-Type: text/html; charset=UTF-8' )
+			);
 		} finally {
-			remove_action( 'phpmailer_init', $prepare, PHP_INT_MAX );
+			remove_action( 'phpmailer_init', $prepare, 10 );
 			foreach ( $touched as list( $mailer, $previous ) ) {
 				if ( $mailer->AltBody === $message['text'] ) {
 					$mailer->AltBody = $previous;

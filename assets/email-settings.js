@@ -8,6 +8,7 @@
 	const input = document.getElementById( 'bpr-email-logo-id' );
 	const option = document.getElementById( 'bpr-email-logo' );
 	const preview = document.getElementById( 'bpr-email-logo-preview' );
+	const clear = document.getElementById( 'bpr-email-clear-logo' );
 	const frame = window.wp.media( {
 		title: bprEmailSettings.title,
 		button: { text: bprEmailSettings.button },
@@ -19,14 +20,16 @@
 		input.value = attachment.id;
 		option.value = 'custom';
 		const image = document.createElement( 'img' );
-		image.src = attachment.url;
+		image.src = attachment.sizes && attachment.sizes.medium ? attachment.sizes.medium.url : attachment.url;
 		image.alt = bprEmailSettings.alt;
 		preview.replaceChildren( image );
 	} );
 	choose.addEventListener( 'click', function () { frame.open(); } );
-	document.getElementById( 'bpr-email-clear-logo' ).addEventListener( 'click', function () {
-		input.value = '0';
-		option.value = 'none';
-		preview.replaceChildren();
-	} );
+	if ( clear ) {
+		clear.addEventListener( 'click', function () {
+			input.value = '0';
+			option.value = 'none';
+			preview.replaceChildren();
+		} );
+	}
 }() );
