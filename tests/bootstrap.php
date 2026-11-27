@@ -5,6 +5,8 @@ if (!$root || !is_file($root . '/wp-load.php')) {
     throw new RuntimeException('Set BPR_WP_ROOT to a disposable WordPress installation. See CONTRIBUTING.md.');
 }
 $_SERVER['HTTP_HOST'] = 'bpr.test';
+// Multisite's site-creation notification reads the request's client address.
+$_SERVER['REMOTE_ADDR'] = '127.0.0.1';
 $_SERVER['REQUEST_METHOD'] = 'POST';
 require_once $root . '/wp-load.php';
 if (!defined('BPR_TESTING') || BPR_TESTING !== true) {

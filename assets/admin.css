@@ -13,6 +13,18 @@
 	color: var(--bpr-ink);
 }
 .bpr-app *, .bpr-app *::before, .bpr-app *::after { box-sizing: border-box; }
+.bpr-navigation { display: flex; flex-wrap: wrap; gap: 12px; margin: 0 0 24px; }
+.bpr-navigation a { padding: 10px 16px; border-radius: 7px; font-size: 14px; font-weight: 600; }
+.bpr-navigation a[aria-current="page"] { background: #e2edf4; color: #14334b; text-decoration: none; }
+.bpr-email-form { display: grid; justify-items: start; gap: 18px; }
+.bpr-email-form fieldset { display: grid; gap: 12px; }
+.bpr-email-form legend, .bpr-email-form > div > label { display: block; margin: 0 0 10px; font-weight: 600; }
+.bpr-email-form select { max-width: 100%; }
+#bpr-email-logo-preview img { max-width: 180px; max-height: 72px; width: auto; height: auto; margin-bottom: 12px; }
+.bpr-email-example { padding: 16px 0; border-top: 1px solid var(--bpr-border); }
+.bpr-email-example summary { cursor: pointer; font-weight: 600; }
+.bpr-email-preview { width: 100%; height: 680px; border: 1px solid var(--bpr-border); border-radius: 7px; background: #f3f6f8; }
+.bpr-email-text { max-width: 100%; overflow-wrap: anywhere; white-space: pre-wrap; padding: 18px; border: 1px solid var(--bpr-border); border-radius: 7px; background: #f7fafc; font-size: 13px; line-height: 1.7; }
 .bpr-app h1, .bpr-app h2, .bpr-app h3 { color: var(--bpr-ink); }
 .bpr-app p, .bpr-app li { font-size: 14px; line-height: 1.65; }
 .bpr-app p { color: var(--bpr-muted); }

@@ -27,14 +27,23 @@ final class View {
 	private $start_new;
 
 	/**
+	 * Whether the separate email preferences view was requested.
+	 *
+	 * @var bool
+	 */
+	private $email;
+
+	/**
 	 * Create the administration view.
 	 *
 	 * @param array|null $job Current job.
 	 * @param bool       $start_new Whether the chooser was requested.
+	 * @param bool       $email Whether email preferences were requested.
 	 */
-	public function __construct( $job, $start_new = false ) {
+	public function __construct( $job, $start_new = false, $email = false ) {
 		$this->job       = $job;
 		$this->start_new = $start_new;
+		$this->email     = $email;
 	}
 
 	/**
@@ -64,7 +73,14 @@ final class View {
 				<span class="bpr-free-badge"><span class="dashicons dashicons-heart" aria-hidden="true"></span><?php esc_html_e( 'Free. Every feature.', 'bulk-password-reset' ); ?></span>
 			</header>
 
-			<?php $this->steps( $step ); ?>
+			<nav class="bpr-navigation" aria-label="<?php esc_attr_e( 'Bulk Password Reset sections', 'bulk-password-reset' ); ?>">
+				<a href="<?php echo esc_url( Admin::url() ); ?>" <?php echo ! $this->email ? 'aria-current="page"' : ''; ?>><?php esc_html_e( 'Bulk reset', 'bulk-password-reset' ); ?></a>
+				<a href="<?php echo esc_url( add_query_arg( 'view', 'email', Admin::url() ) ); ?>" <?php echo $this->email ? 'aria-current="page"' : ''; ?>><?php esc_html_e( 'Email settings', 'bulk-password-reset' ); ?></a>
+			</nav>
+			<?php
+			if ( ! $this->email ) {
+				$this->steps( $step ); }
+			?>
 
 			<?php if ( is_multisite() ) : ?>
 				<div class="bpr-callout bpr-callout--warning"><span class="dashicons dashicons-networking" aria-hidden="true"></span><p><?php esc_html_e( 'Multisite: only super administrators can run this tool. Selection is limited to this site, but passwords and sessions are shared across the network.', 'bulk-password-reset' ); ?></p></div>
@@ -73,7 +89,9 @@ final class View {
 			<div class="bpr-layout">
 				<main class="bpr-main" aria-label="<?php esc_attr_e( 'Password reset workflow', 'bulk-password-reset' ); ?>">
 					<?php
-					if ( $active && ! $owned ) {
+					if ( $this->email ) {
+						( new Email_View() )->render();
+					} elseif ( $active && ! $owned ) {
 						?>
 							<section class="bpr-card bpr-card-body"><h2><?php esc_html_e( 'A reset is already in progress', 'bulk-password-reset' ); ?></h2><p><?php esc_html_e( 'Another administrator has an active password reset on this site. They must finish or cancel it, or let it expire after 48 hours.', 'bulk-password-reset' ); ?></p></section>
 						<?php
@@ -218,6 +236,11 @@ final class View {
 					<h2><?php esc_html_e( 'Ready for the next batch', 'bulk-password-reset' ); ?></h2>
 				<?php endif; ?>
 				<div class="bpr-mode-summary"><span class="dashicons dashicons-email-alt" aria-hidden="true"></span><strong><?php echo 'invalidate' === $job['mode'] ? esc_html__( 'Invalidate passwords and browser sessions, then send reset links', 'bulk-password-reset' ) : esc_html__( 'Send reset links; existing passwords remain valid', 'bulk-password-reset' ); ?></strong></div>
+				<p class="bpr-help"><?php echo isset( $job['email']['format'] ) && 'html' === $job['email']['format'] ? esc_html__( 'Email format: HTML with a reset button. The confirmed logo is used when available.', 'bulk-password-reset' ) : esc_html__( 'Email format: plain text.', 'bulk-password-reset' ); ?></p>
+				<?php $email_logo = isset( $job['email']['logo_id'] ) ? Email_Settings::image( $job['email']['logo_id'] ) : null; ?>
+				<?php if ( $email_logo ) : ?>
+					<p><img src="<?php echo esc_url( $email_logo['url'] ); ?>" width="<?php echo esc_attr( (string) $email_logo['width'] ); ?>" height="<?php echo esc_attr( (string) $email_logo['height'] ); ?>" alt="<?php esc_attr_e( 'Email logo', 'bulk-password-reset' ); ?>"></p>
+				<?php endif; ?>
 				<?php if ( 'invalidate' === $job['mode'] ) : ?>
 					<div class="bpr-callout bpr-callout--warning"><span class="dashicons dashicons-warning" aria-hidden="true"></span><p><?php esc_html_e( 'Immediate invalidation cannot be undone. If email fails, the password still changes. Verify your site can send mail before starting. Application passwords and external sign-in providers are not revoked.', 'bulk-password-reset' ); ?></p></div>
 				<?php endif; ?>
@@ -311,9 +334,28 @@ final class View {
 			<div class="bpr-report-footnote"><p><?php esc_html_e( 'Accepted for sending does not guarantee delivery. Users with an unknown outcome are not retried automatically; review them separately. No passwords or reset links are stored in this report.', 'bulk-password-reset' ); ?></p></div>
 			<?php if ( $review_ids ) : ?>
 				<div class="bpr-review-accounts"><h3><?php esc_html_e( 'Users to review', 'bulk-password-reset' ); ?></h3><p><?php esc_html_e( 'Up to 100 users with failed resets and 100 users with unknown outcomes are listed here.', 'bulk-password-reset' ); ?></p><ul>
-					<?php foreach ( $review_ids as $review_id ) : ?>
-						<?php $user = get_user_by( 'id', $review_id ); ?>
-						<li><a href="<?php echo esc_url( get_edit_user_link( $review_id ) ); ?>"><?php echo esc_html( $user ? $user->user_login : (string) $review_id ); ?></a> (<?php echo esc_html( (string) $review_id ); ?>)</li>
+					<?php
+					$review_users = get_users(
+						array(
+							'blog_id' => 0,
+							'include' => $review_ids,
+							'fields'  => array( 'ID', 'user_login' ),
+						)
+					);
+					$users_by_id  = array_column( $review_users, null, 'ID' );
+					foreach ( $review_ids as $review_id ) :
+						$user      = isset( $users_by_id[ $review_id ] ) ? $users_by_id[ $review_id ] : null;
+						$label     = $user ? $user->user_login : (string) $review_id;
+						$edit_link = get_edit_user_link( $review_id );
+						?>
+						<li>
+							<?php if ( $edit_link ) : ?>
+								<a href="<?php echo esc_url( $edit_link ); ?>"><?php echo esc_html( $label ); ?></a>
+							<?php else : ?>
+								<?php echo esc_html( $label ); ?>
+							<?php endif; ?>
+							(<?php echo esc_html( (string) $review_id ); ?>)
+						</li>
 					<?php endforeach; ?>
 				</ul></div>
 			<?php endif; ?>

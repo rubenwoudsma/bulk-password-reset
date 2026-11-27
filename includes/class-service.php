@@ -127,12 +127,13 @@ final class Service {
 	 * Reset one eligible account; never return or store credentials or keys.
 	 * A failed email in invalidate mode cannot undo the password change.
 	 *
-	 * @param int    $id Account ID.
-	 * @param string $mode Either link or invalidate.
-	 * @param string $note Plain-text administrator note.
+	 * @param int        $id Account ID.
+	 * @param string     $mode Either link or invalidate.
+	 * @param string     $note Plain-text administrator note.
+	 * @param array|null $email_settings Confirmed preferences, or current settings.
 	 * @return array Status and whether credentials were invalidated.
 	 */
-	public function reset_user( $id, $mode, $note = '' ) {
+	public function reset_user( $id, $mode, $note = '', $email_settings = null ) {
 		$result = array(
 			'status'      => 'skipped',
 			'invalidated' => false,
@@ -145,6 +146,10 @@ final class Service {
 		if ( is_wp_error( $allowed ) || ! $allowed ) {
 			return $result;
 		}
+		if ( ! is_email( $user->user_email ) ) {
+			$result['status'] = 'failed';
+			return $result;
+		}
 
 		$switched = switch_to_user_locale( $user->ID );
 		try {
@@ -152,6 +157,11 @@ final class Service {
 				wp_set_password( wp_generate_password( 64, true, true ), $user->ID );
 				\WP_Session_Tokens::get_instance( $user->ID )->destroy_all();
 				$result['invalidated'] = true;
+				$user                  = get_user_by( 'id', $id );
+				if ( ! $user ) {
+					$result['status'] = 'failed';
+					return $result;
+				}
 			}
 			// Generate after wp_set_password(), which clears existing reset keys.
 			$key = get_password_reset_key( $user );
@@ -160,35 +170,9 @@ final class Service {
 				return $result;
 			}
 			// Keep login away from the end so automatic links retain a trailing period.
-			$url     = network_site_url( 'wp-login.php?login=' . rawurlencode( $user->user_login ) . '&key=' . rawurlencode( $key ) . '&action=rp', 'login' );
-			$site    = sanitize_text_field( wp_specialchars_decode( get_option( 'blogname' ), ENT_QUOTES ) );
-			$message = sprintf(
-				/* translators: %s: site name. */
-				__( 'The administrator of %s has requested that you choose a new password.', 'bulk-password-reset' ),
-				$site
-			) . "\n\n";
-			if ( $result['invalidated'] ) {
-				$message .= __( 'Your previous password and browser sessions have been invalidated.', 'bulk-password-reset' ) . "\n\n";
-			}
-			if ( '' !== $note ) {
-				$message .= sanitize_textarea_field( $note ) . "\n\n";
-			}
-			$message .= sprintf(
-				/* translators: %s: account login. */
-				__( 'Username: %s', 'bulk-password-reset' ),
-				$user->user_login
-			) . "\n\n";
-			$message .= __( 'Choose your new password using this single-use link:', 'bulk-password-reset' ) . "\n" . $url . "\n\n";
-			$message .= __( 'If the link has expired, request another using the Lost your password link on the login screen.', 'bulk-password-reset' ) . "\n";
-			$sent     = wp_mail(
-				$user->user_email,
-				sprintf(
-					/* translators: %s: site name. */
-					__( '[%s] Choose a new password', 'bulk-password-reset' ),
-					$site
-				),
-				$message
-			);
+			$url              = network_site_url( 'wp-login.php?login=' . rawurlencode( $user->user_login ) . '&key=' . rawurlencode( $key ) . '&action=rp', 'login' );
+			$message          = Email::message( $user->user_login, $mode, $note, $url, Email_Settings::snapshot( $email_settings ) );
+			$sent             = Email::send( $user->user_email, $message );
 			$result['status'] = $sent ? 'sent' : 'failed';
 			return $result;
 		} finally {

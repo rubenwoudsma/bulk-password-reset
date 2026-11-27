@@ -23,6 +23,16 @@ The operator needs both `manage_options` and `edit_users`. Every target also req
 
 On multisite, only super administrators may operate the plugin. Selection is site-scoped; password and browser-session changes affect the shared account throughout the network. There is no network-wide recipient selector.
 
+## Optional HTML reset emails
+
+Under **Users → Bulk Password Reset → Email settings**, keep the default plain-text messages or opt into a simple HTML layout. HTML adds a clear reset button and copyable link, with optional branding from the site's configured logo or a public PNG/JPEG/GIF in its Media Library. No author branding or tracking is inserted into users' mail. The site name and recovery instructions remain readable with images blocked.
+
+Save settings, inspect both example modes, and send a nonfunctional test to your own WordPress profile address. These controls do not generate a real key, reset an account, alter a session or replace the latest job report. New bulk-job previews capture the chosen format and image ID; later settings changes do not alter that job. Jobs created before this feature continue using plain text.
+
+The site's configured `wp_mail` transport and sender hooks remain in control. Standard PHPMailer/SMTP delivery includes a readable plain-text alternative. API providers that short-circuit `wp_mail` receive normal HTML and Content-Type headers and control their own MIME alternatives; test them with your provider. Native `retrieve_password_title` and `retrieve_password_message` filters remain unused, as in the existing reset service. This is one controlled template, not a general HTML editor.
+
+See the [email settings screen](docs/email-settings.png) and a [fictional HTML test email](docs/html-reset-email.png). Both use synthetic site details and a nonfunctional link.
+
 ## Requirements and installation
 
 WordPress 6.8+, PHP 8.2+, and working WordPress email. Upload the installable ZIP through Plugins, or replace `wp-content/plugins/bulk-password-reset`. The existing `bulk_password_reset.php` filename is retained to preserve the plugin's activation identity.
@@ -40,7 +50,7 @@ Before enabling immediate invalidation, test mail and both modes on a staging co
 | Release plugin | Numeric `MAJOR.MINOR.PATCH` Git tag; manual preview | Reruns CI and verifies reviewed source. Tags publish a GitHub Release with changelog notes, the tested plugin ZIP and checksum. SVN uploads run only when enabled; manual runs preview both destinations. |
 | Sync published readme | Manual, master only; dry run by default | Updates only the readme in trunk and the existing stable tag; refuses missing or mismatched stable releases |
 
-All referenced actions are pinned to commit SHAs, with Dependabot tracking updates. General CI has read-only repository permissions and no deployment secrets. The readme-preview workflow has narrowly scoped comment permission and intentionally never checks out pull-request code. No Node build is needed for this PHP-only plugin.
+All referenced actions are pinned to commit SHAs, with Dependabot tracking updates. General CI has read-only repository permissions and no deployment secrets. The readme-preview workflow has narrowly scoped comment permission and intentionally never checks out pull-request code. No Node build is needed; the small Media Library picker uses WordPress's existing media interface.
 
 The GitHub Release publishing job uses the built-in Actions token with repository-content write permission. SVN upload credentials and its enable setting are handled separately: a disabled SVN upload is skipped successfully. Only push a version tag when public GitHub publication is intended.
 

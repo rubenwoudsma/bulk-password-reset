@@ -22,6 +22,7 @@ if ( is_multisite() ) {
 			delete_option( 'bpr_job' );
 			delete_option( 'bpr_job_lock' );
 			delete_option( 'bpr_options' );
+			delete_option( 'bpr_email_settings' );
 			restore_current_blog();
 		}
 		$bulk_password_reset_offset += 100;
@@ -31,4 +32,5 @@ if ( is_multisite() ) {
 	delete_option( 'bpr_job' );
 	delete_option( 'bpr_job_lock' );
 	delete_option( 'bpr_options' );
+	delete_option( 'bpr_email_settings' );
 }

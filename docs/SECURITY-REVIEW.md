@@ -2,6 +2,10 @@
 
 This documents the security rewrite first published in 2.0.0 and retained in later releases. It is an engineering review, not an independent penetration-test certificate or an advisory-provider approval. See the [security policy](../SECURITY.md) for supported releases.
 
+## Optional HTML emails
+
+Email preferences use the same operator checks as bulk resets, with separate POST/nonces for saving and test mail. Test recipients come from the authorized operator's profile, never a submitted address; fictional examples generate no reset key and change no job or account. Branding accepts public PNG/JPEG/GIF Media Library attachments and stores IDs rather than arbitrary URLs. Unavailable images and images attached to private or password-protected posts are omitted. Variable content and URLs are escaped, and notes remain plain text. There is no HTML editor or added tracking. Jobs snapshot email preferences; older jobs retain plain text. Mail uses the existing WordPress transport. A message-scoped PHPMailer callback supplies the plain alternative and is removed on success, failure or short circuit; API transports that bypass PHPMailer retain control of MIME composition.
+
 ## Baselines examined
 
 * GitHub master at `e98356c620d2bf256c42392de23b44a876663c68`: header reports `1.1.0.` and readme contains WordPress 2.8-era requirements.

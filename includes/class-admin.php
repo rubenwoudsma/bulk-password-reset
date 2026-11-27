@@ -38,6 +38,8 @@ final class Admin {
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_action( 'admin_post_bpr_preview', array( $this, 'preview' ) );
 		add_action( 'admin_post_bpr_process', array( $this, 'process' ) );
+		add_action( 'admin_post_bpr_email_save', array( $this, 'email_save' ) );
+		add_action( 'admin_post_bpr_email_test', array( $this, 'email_test' ) );
 		add_action( 'load-users.php', array( $this, 'users_preview' ) );
 		add_filter( 'bulk_actions-users', array( $this, 'bulk_actions' ) );
 		add_filter( 'handle_bulk_actions-users', array( $this, 'bulk_preview' ), 10, 3 );
@@ -79,6 +81,20 @@ final class Admin {
 			array(),
 			BULK_PASSWORD_RESET_VERSION
 		);
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only asset selection on the authorized plugin screen.
+		if ( isset( $_GET['view'] ) && 'email' === $_GET['view'] && current_user_can( 'upload_files' ) ) {
+			wp_enqueue_media();
+			wp_enqueue_script( 'bulk-password-reset-email', plugins_url( 'assets/email-settings.js', dirname( __DIR__ ) . '/bulk_password_reset.php' ), array( 'media-views' ), BULK_PASSWORD_RESET_VERSION, true );
+			wp_localize_script(
+				'bulk-password-reset-email',
+				'bprEmailSettings',
+				array(
+					'title'  => __( 'Choose an email logo', 'bulk-password-reset' ),
+					'button' => __( 'Use this image', 'bulk-password-reset' ),
+					'alt'    => __( 'Selected email logo', 'bulk-password-reset' ),
+				)
+			);
+		}
 	}
 
 	/**
@@ -218,6 +234,51 @@ final class Admin {
 	}
 
 	/**
+	 * Save site-local email preferences without touching accounts or jobs.
+	 *
+	 * @return void
+	 */
+	public function email_save() {
+		$this->require_post();
+		check_admin_referer( 'bpr_email_save' );
+		$value = isset( $_POST['email'] ) && is_array( $_POST['email'] ) ? map_deep( wp_unslash( $_POST['email'] ), 'sanitize_text_field' ) : array();
+		$this->check_result( Email_Settings::save( $value ) );
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'view'         => 'email',
+					'email_notice' => 'saved',
+				),
+				self::url()
+			)
+		);
+		exit;
+	}
+
+	/**
+	 * Send a sample only to the current operator, never to submitted addresses.
+	 *
+	 * @return void
+	 */
+	public function email_test() {
+		$this->require_post();
+		check_admin_referer( 'bpr_email_test' );
+		$mode   = isset( $_POST['example_mode'] ) && is_string( $_POST['example_mode'] ) ? sanitize_key( wp_unslash( $_POST['example_mode'] ) ) : '';
+		$result = Email::send_test( $mode );
+		$this->check_result( $result );
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'view'         => 'email',
+					'email_notice' => $result ? 'sent' : 'failed',
+				),
+				self::url()
+			)
+		);
+		exit;
+	}
+
+	/**
 	 * Render the authorized administration screen.
 	 *
 	 * @return void
@@ -225,7 +286,7 @@ final class Admin {
 	public function render() {
 		$this->authorize();
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only navigation; starting a preview still requires its authorized POST and nonce.
-		$start_new = isset( $_GET['view'] ) && is_string( $_GET['view'] ) && 'new' === sanitize_key( wp_unslash( $_GET['view'] ) );
-		( new View( $this->jobs->current(), $start_new ) )->render();
+		$view = isset( $_GET['view'] ) && is_string( $_GET['view'] ) ? sanitize_key( wp_unslash( $_GET['view'] ) ) : '';
+		( new View( $this->jobs->current(), 'new' === $view, 'email' === $view ) )->render();
 	}
 }

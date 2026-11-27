@@ -62,7 +62,7 @@ final class Jobs {
 	}
 
 	/**
-	 * Serialize all job mutations using the unique option-name database index.
+	 * Serialize job mutations using a non-autoloaded lock option.
 	 * Never steal a lock from a worker that might still be sending email.
 	 *
 	 * @param callable $callback Job operation.
@@ -121,6 +121,7 @@ final class Jobs {
 					'selection'     => $selection,
 					'mode'          => $mode,
 					'note'          => sanitize_textarea_field( $note ),
+					'email'         => Email_Settings::snapshot(),
 					'status'        => 'ready',
 					'cursor'        => 0,
 					'in_flight'     => 0,
@@ -194,7 +195,9 @@ final class Jobs {
 					if ( ! $this->save( $job ) ) {
 						return $this->storage_error();
 					}
-					$result = $this->service->reset_user( $user->ID, $job['mode'], $job['note'] );
+					// Existing pre-feature jobs retain their original plain-text format.
+					$email  = isset( $job['email'] ) ? $job['email'] : Email_Settings::defaults();
+					$result = $this->service->reset_user( $user->ID, $job['mode'], $job['note'], $email );
 					++$job[ $result['status'] ];
 					if ( 'failed' === $result['status'] && count( $job['failed_ids'] ) < 100 ) {
 						$job['failed_ids'][] = $user->ID;
