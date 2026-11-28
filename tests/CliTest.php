@@ -278,8 +278,8 @@ final class CliTest extends TestCase
         $conflictStart = $this->wp(['start', '--roles=subscriber', '--mode=link', '--yes', '--user=' . $this->admin]);
         self::assertSame(Cli::EXIT_CONFLICT, $conflictStart['code']);
 
-        // Promote a future candidate and register a new user after the job started.
-        (new WP_User($promoted))->set_role('administrator');
+        // Grant privileged role alongside subscriber and register a new user after start.
+        (new WP_User($promoted))->add_role('administrator');
         if (is_multisite()) {
             grant_super_admin($promoted);
         }
@@ -425,9 +425,6 @@ final class CliTest extends TestCase
 
     private function wp(array $subcommandArgs, string $stdin = '', array $extraEnv = []): array
     {
-        if ($this->spool !== '' && is_file($this->spool)) {
-            unlink($this->spool);
-        }
         $wpBin = $this->locateWpCli();
         $repoRoot = dirname(__DIR__);
         $wpRoot = (string) getenv('BPR_WP_ROOT');
