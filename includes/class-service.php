@@ -124,6 +124,45 @@ final class Service {
 	}
 
 	/**
+	 * Inspect a candidate selection without creating or replacing a stored job.
+	 *
+	 * @param array $roles Role slugs.
+	 * @param array $ids Account IDs.
+	 * @param int   $limit Maximum sample rows to inspect.
+	 * @return array|\WP_Error Read-only selection summary and sample eligibility.
+	 */
+	public function preview( $roles, $ids, $limit = 20 ) {
+		$selection = $this->selection( $roles, $ids );
+		if ( is_wp_error( $selection ) ) {
+			return $selection;
+		}
+		$size  = max( 1, min( 100, (int) $limit ) );
+		$query = $this->query( $selection, 0, $size, true );
+		$rows  = array();
+		foreach ( $query->get_results() as $user ) {
+			$eligibility = 'protected';
+			if ( $this->can_target( $user ) ) {
+				$allowed     = wp_is_password_reset_allowed_for_user( $user );
+				$eligibility = ( ! is_wp_error( $allowed ) && $allowed )
+					? ( is_email( $user->user_email ) ? 'eligible' : 'invalid_email' )
+					: 'policy_blocked';
+			}
+			$rows[] = array(
+				'id'          => (int) $user->ID,
+				'login'       => $user->user_login,
+				'eligibility' => $eligibility,
+			);
+		}
+		return array(
+			'blog_id'   => get_current_blog_id(),
+			'selection' => $selection,
+			'email'     => Email_Settings::snapshot(),
+			'total'     => (int) $query->get_total(),
+			'sample'    => $rows,
+		);
+	}
+
+	/**
 	 * Reset one eligible account; never return or store credentials or keys.
 	 * A failed email in invalidate mode cannot undo the password change.
 	 *

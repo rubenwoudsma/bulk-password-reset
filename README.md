@@ -33,6 +33,25 @@ The site's configured `wp_mail` transport and sender hooks remain in control. St
 
 See the [email settings screen](docs/email-settings.png) and a [fictional HTML test email](docs/html-reset-email.png). Both use synthetic site details and a nonfunctional link.
 
+## Optional WP-CLI commands
+
+When WP-CLI is available, `wp bulk-password-reset` exposes the same recipient protections, localized plain-text/HTML email snapshots, bounded 20-user batches, checkpoints and ownership rules without keeping a browser tab open. WP-CLI is optional; the command class is not loaded during web requests.
+
+Always pass an explicit authorized WordPress operator with `--user=<id|login>` (and `--url=<site-url>` on multisite, using a super administrator):
+
+```sh
+wp bulk-password-reset preview --roles=subscriber --user=admin
+wp bulk-password-reset start --roles=subscriber --mode=link --yes --user=admin
+wp bulk-password-reset status --format=json --user=admin
+wp bulk-password-reset resume <job-id> --max-batches=5 --user=admin
+wp bulk-password-reset cancel <job-id> --yes --user=admin
+```
+
+- `preview` is strictly read-only and preserves any existing `bpr_job` report.
+- `start` and `resume` run sequential 20-user batches to completion by default, flushing the in-process runtime cache between batches, or pause cleanly after `--max-batches=<n>`.
+- Output includes only job IDs, timestamps, aggregate counts and bounded failed/unknown user IDs—never passwords, reset keys/URLs, email bodies or recipient addresses. When `--format=json` is selected, warnings go to `stderr` and `stdout` emits a single JSON object.
+- Exit codes: `0` clean success, `1` invalid input/unauthorized/missing or expired job/storage failure, `2` confirmation required or declined, `3` active job or lock conflict, `4` completed (or paused at `--max-batches`) with one or more failed or unknown-outcome accounts.
+
 ## Requirements and installation
 
 WordPress 6.8+, PHP 8.2+, and working WordPress email. Upload the installable ZIP through Plugins, or replace `wp-content/plugins/bulk-password-reset`. The existing `bulk_password_reset.php` filename is retained to preserve the plugin's activation identity.

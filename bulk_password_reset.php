@@ -46,3 +46,8 @@ add_action( 'admin_init', __NAMESPACE__ . '\\remove_legacy_settings' );
 register_activation_hook( __FILE__, __NAMESPACE__ . '\\remove_legacy_settings' );
 
 ( new Admin( new Jobs( new Service() ) ) )->register();
+
+if ( defined( 'WP_CLI' ) && WP_CLI && class_exists( 'WP_CLI' ) ) {
+	require_once __DIR__ . '/includes/class-cli.php';
+	Cli::register( new Jobs( new Service() ), new Service() );
+}
