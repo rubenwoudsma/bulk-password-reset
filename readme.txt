@@ -34,6 +34,7 @@ Immediate invalidation cannot be undone. If email fails, the password still chan
 * Optional plain-text email note and user-locale support.
 * Plain-text emails by default, or optional HTML emails with a reset button and your site's logo.
 * Safe email previews and a nonfunctional test message sent only to your own profile address.
+* Optional WP-CLI commands (`wp bulk-password-reset`) for read-only previews, confirmed resets, status, resume and cancellation.
 * A light, responsive admin layout with clear steps, reset-mode cards, and progress reports.
 * WordPress reset-key generation, hashing, expiration and single-use validation.
 * Per-request operator permissions and per-account edit checks.
@@ -94,6 +95,10 @@ Yes. Open Users > Bulk Password Reset > Email settings. Plain text remains the d
 
 The plugin uses your existing WordPress mail configuration. Standard PHPMailer/SMTP mail includes HTML and a readable plain-text alternative. API providers that bypass PHPMailer receive the HTML body and content-type header and control their own MIME alternatives. Check delivery and rendering through your provider. Native WordPress retrieve_password_title and retrieve_password_message filters are not called by this plugin; this preserves the existing behaviour. Normal wp_mail and sender/transport hooks remain available.
 
+= Can I run bulk password resets with WP-CLI? =
+
+Yes, when WP-CLI is installed on your server. WP-CLI is completely optional and never required for dashboard use. Run `wp bulk-password-reset` with `preview`, `start`, `status`, `resume` or `cancel`, supplying an authorized `--user` (and `--url` on multisite, using a super administrator). CLI previews are read-only and preserve existing reports; `start` and `cancel` require interactive confirmation or `--yes`.
+
 = What does a successful email count mean? =
 
 It means WordPress accepted the email for sending, not that it arrived. Check your mail provider for delivery problems. A subsequent WordPress password-reset request can supersede an earlier link.
@@ -113,6 +118,7 @@ The old settings, including stored shared passwords and custom keys, are deleted
 * Add site-logo or Media Library image branding, with accessible text when images are unavailable.
 * Add protected email settings, nonfunctional previews and test mail restricted to the current administrator's profile address.
 * Capture email preferences per job; preserve plain-text formatting for jobs created before this feature.
+* Add optional WP-CLI commands (`wp bulk-password-reset`) for read-only previews, confirmed batch execution, status, resume and cancellation.
 
 = 2.0.2 =
 * Preserve usernames ending in a period when reset links are made clickable, in both reset modes.
